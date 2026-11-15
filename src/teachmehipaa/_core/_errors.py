@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal, TypeAlias
 
 import httpx
 
@@ -109,6 +109,29 @@ class APIError(TeachMeHipaaError):
 class OAuthError(TeachMeHipaaError):
     """The token endpoint refused a grant. `code` is the OAuth `error` and
     `detail` its `error_description`."""
+
+
+WebhookSignatureErrorCode: TypeAlias = Literal[
+    "missing_header",
+    "invalid_timestamp",
+    "timestamp_outside_tolerance",
+    "body_hash_mismatch",
+    "signature_mismatch",
+]
+
+
+class WebhookSignatureError(TeachMeHipaaError):
+    """A webhook Delivery failed verification. `code` says which check
+    failed.
+
+    Never carries the Delivery's body or headers: a Delivery holds Learner
+    data, and errors end up in logs and error trackers (ADR-0007).
+    """
+
+    code: WebhookSignatureErrorCode
+
+    def __init__(self, code: WebhookSignatureErrorCode, message: str) -> None:
+        super().__init__(message, code=code)
 
 
 class APIConnectionError(TeachMeHipaaError):

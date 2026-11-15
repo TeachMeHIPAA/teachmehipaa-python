@@ -4,6 +4,7 @@ import asyncio
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from types import TracebackType
+from typing import ClassVar
 
 import httpx
 
@@ -22,6 +23,7 @@ from ._core._config import (
 )
 from ._core._pipeline import AsyncPipeline, SyncPipeline
 from ._core._retry import AsyncSender, SyncSender
+from ._webhooks import Webhook
 from .resources._root import AsyncResources, SyncResources
 
 
@@ -55,6 +57,10 @@ class TeachMeHipaa(_ConfigView, SyncResources):
     Access tokens itself and discovers the Organization the credential is
     bound to unless `organization_id` is given.
     """
+
+    webhooks: ClassVar[type[Webhook]] = Webhook
+    """Delivery verification. A class attribute: it needs only the Signing
+    secret, so it works without credentials or a request."""
 
     def __init__(
         self,
@@ -107,6 +113,10 @@ class TeachMeHipaa(_ConfigView, SyncResources):
 
 class AsyncTeachMeHipaa(_ConfigView, AsyncResources):
     """The asyncio twin of `TeachMeHipaa`, with the same surface."""
+
+    webhooks: ClassVar[type[Webhook]] = Webhook
+    """Delivery verification. A class attribute: it needs only the Signing
+    secret, so it works without credentials or a request."""
 
     def __init__(
         self,

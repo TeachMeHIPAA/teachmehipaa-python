@@ -17,12 +17,15 @@ from ._core._errors import (
     PreconditionFailedError,
     RateLimitError,
     TeachMeHipaaError,
+    WebhookSignatureError,
+    WebhookSignatureErrorCode,
 )
 from ._core._files import FileInput
 from ._core._models import BinaryResponse, LastResponse
 from ._core._pagination import AsyncPage, SyncPage
 from ._core._sentinel import NOT_GIVEN, NotGiven
 from ._version import __version__
+from ._webhooks import Webhook
 
 __all__ = [
     "NOT_GIVEN",
@@ -50,5 +53,8 @@ __all__ = [
     "SyncPage",
     "TeachMeHipaa",
     "TeachMeHipaaError",
+    "Webhook",
+    "WebhookSignatureError",
+    "WebhookSignatureErrorCode",
     "__version__",
 ]
