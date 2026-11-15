@@ -561,12 +561,25 @@ class Argument:
     required: bool
     description: str | None = None
     nullable: bool = False
+    # A literal default in place of `NOT_GIVEN`.
+    default: str | None = None
 
     def signature(self) -> str:
         null = " | None" if self.nullable else ""
+        if self.default is not None:
+            return f"{self.name}: {self.annotation}{null} = {self.default}"
         if self.required:
             return f"{self.name}: {self.annotation}{null}"
         return f"{self.name}: {self.annotation} | NotGiven{null} = NOT_GIVEN"
+
+
+@dataclass
+class Overload:
+    """One `@overload` of a method: the keyword arguments it types narrower
+    than the implementation, by name, and what it returns."""
+
+    arguments: dict[str, str]
+    returns: str
 
 
 @dataclass
@@ -580,6 +593,7 @@ class MethodPlan:
     response_type: str | None
     pagination: Json | None
     docs: list[str | None]
+    overloads: list[Overload] = field(default_factory=list)
 
 
 def response_plan(ir: Ir, method: Json) -> tuple[str, str, str | None]:
@@ -638,7 +652,7 @@ def plan_method(ir: Ir, method: Json) -> MethodPlan:
         request.append(f"path_params={{{params}}}")
 
     if method["ifMatch"] == "required":
-        keywords.append(Argument("if_match", "str", True, IF_MATCH_DOC))
+        keywords.append(Argument("if_match", "ETagSource", True, IF_MATCH_DOC))
 
     plan = body_plan(ir, method)
     if plan is not None:
@@ -686,20 +700,20 @@ def plan_method(ir: Ir, method: Json) -> MethodPlan:
             entries.append(f"{json.dumps(p['name'])}: {name}")
         request.append(f"query={{{', '.join(entries)}}}")
 
-    headers = []
-    if method["ifMatch"] == "required":
-        headers.append('"if-match": if_match')
-    elif method["ifMatch"] == "optional":
-        keywords.append(Argument("if_match", "str", False, IF_MATCH_DOC))
-        headers.append('"if-match": if_match')
+    if method["ifMatch"] != "none":
+        if method["ifMatch"] == "optional":
+            keywords.append(Argument("if_match", "ETagSource", False, IF_MATCH_DOC))
+        request.append("if_match=if_match")
     if method["ifNoneMatch"] != "none":
         required = method["ifNoneMatch"] == "required"
-        keywords.append(Argument("if_none_match", "str", required, IF_NONE_MATCH_DOC))
-        headers.append('"if-none-match": if_none_match')
+        keywords.append(
+            Argument("if_none_match", "ETagSource", required, IF_NONE_MATCH_DOC)
+        )
+        request.append("if_none_match=if_none_match")
     if method["response"]["kind"] == "binary":
-        headers.append(f'"accept": {json.dumps(method["response"]["contentType"])}')
-    if headers:
-        request.append(f"headers={{{', '.join(headers)}}}")
+        content_type = method["response"]["contentType"]
+        request.append(f"binary_content_type={json.dumps(content_type)}")
+        keywords.append(Argument("stream", "bool", False, STREAM_DOC, default="False"))
 
     if method["orgScoped"]:
         request.append("org_scoped=True")
@@ -722,6 +736,30 @@ def plan_method(ir: Ir, method: Json) -> MethodPlan:
         raise GeneratorError(f"{operation}: argument names collide")
 
     returns, call, response_type = response_plan(ir, method)
+    overloads = []
+    if method["ifNoneMatch"] != "none":
+        if call != "request":
+            raise GeneratorError(f"{operation}: If-None-Match on a non-model read")
+        call = "request_conditional"
+        conditional = f"{returns} | NotModified"
+        if method["ifNoneMatch"] == "optional":
+            # Without If-None-Match a 304 can't happen, so a plain call is
+            # typed as the model alone.
+            overloads = [
+                Overload(
+                    {"if_none_match": "if_none_match: NotGiven = NOT_GIVEN"}, returns
+                ),
+                Overload({"if_none_match": "if_none_match: ETagSource"}, conditional),
+            ]
+        returns = conditional
+    if call == "request_binary":
+        stream = "{stream}"
+        overloads = [
+            Overload({"stream": "stream: Literal[False] = False"}, returns),
+            Overload({"stream": "stream: Literal[True]"}, stream),
+            Overload({"stream": "stream: bool"}, f"{returns} | {stream}"),
+        ]
+        returns = f"{returns} | {stream}"
     pagination = None
     if call == "request_page":
         pagination = method["pagination"]
@@ -737,11 +775,24 @@ def plan_method(ir: Ir, method: Json) -> MethodPlan:
         response_type=response_type,
         pagination=pagination,
         docs=[method["summary"], method["description"], RETURN_DOCS.get(call)],
+        overloads=overloads,
     )
 
 
-IF_MATCH_DOC = "The ETag the object was read with (`last_response.etag`)."
-IF_NONE_MATCH_DOC = "An ETag the caller already holds."
+IF_MATCH_DOC = (
+    "The ETag the object was read with, or the object itself (its "
+    "`last_response.etag` is sent). A stale ETag raises "
+    '`PreconditionFailedError`; `"*"` matches any version.'
+)
+IF_NONE_MATCH_DOC = (
+    "The ETag of the copy the caller holds, or that copy itself. When it is "
+    "still current the API answers 304 and the method returns `NotModified`."
+)
+STREAM_DOC = (
+    "Return a stream (`BinaryStream`, or `AsyncBinaryStream` on the async "
+    "client) as soon as the headers arrive instead of reading the whole file. "
+    "Use it as a context manager so the connection is released."
+)
 IDEMPOTENCY_DOC = (
     "Overrides the key generated for this call. Retries reuse the same key."
 )
@@ -753,7 +804,10 @@ RETURN_DOCS = {
         "`created` is true when this call created the Learner (201) and false "
         "when it already existed (200)."
     ),
-    "request_binary": "Returns the file's bytes with its content type and filename.",
+    "request_binary": (
+        "Returns the file's bytes with its content type and filename, or with "
+        "`stream=True` a stream to read them from."
+    ),
 }
 
 
@@ -761,19 +815,41 @@ def python_literal(value: Json) -> str:
     return repr(value)
 
 
-def render_method(plan: MethodPlan, asynchronous: bool) -> list[str]:
-    page = "AsyncPage" if asynchronous else "SyncPage"
-    returns = plan.returns.replace("{page}", page)
+def render_signature(
+    plan: MethodPlan,
+    asynchronous: bool,
+    returns: str,
+    narrowed: Mapping[str, str],
+) -> list[str]:
+    placeholders = {
+        "{page}": "AsyncPage" if asynchronous else "SyncPage",
+        "{stream}": "AsyncBinaryStream" if asynchronous else "BinaryStream",
+    }
+    for placeholder, name in placeholders.items():
+        returns = returns.replace(placeholder, name)
     parameters = ["self"]
     parameters += [a.signature() for a in plan.positional]
     if plan.positional:
         parameters.append("/")
     parameters.append("*")
-    parameters += [a.signature() for a in plan.keywords]
+    parameters += [narrowed.get(a.name, a.signature()) for a in plan.keywords]
     prefix = "async def" if asynchronous else "def"
     lines = [f"    {prefix} {plan.name}("]
     lines += [f"        {parameter}," for parameter in parameters]
     lines.append(f"    ) -> {returns}:")
+    return lines
+
+
+def render_method(plan: MethodPlan, asynchronous: bool) -> list[str]:
+    lines: list[str] = []
+    for variant in plan.overloads:
+        lines.append("    @overload")
+        lines += render_signature(
+            plan, asynchronous, variant.returns, variant.arguments
+        )
+        lines[-1] += " ..."
+        lines.append("")
+    lines += render_signature(plan, asynchronous, plan.returns, {})
     described = [a for a in plan.positional + plan.keywords if a.description]
     args = "Args:\n" + "\n".join(f"    {a.name}: {a.description}" for a in described)
     lines += docstring([*plan.docs, args if described else None], 8)
@@ -784,6 +860,16 @@ def render_method(plan: MethodPlan, asynchronous: bool) -> list[str]:
         arguments.append(f"cursor_param={json.dumps(plan.pagination['cursorParam'])}")
         arguments.append(f"style={json.dumps(plan.pagination['style'])}")
     awaiting = "await " if asynchronous else ""
+    if plan.call == "request_binary":
+        # The overloads tie the return type to `stream`.
+        pipeline = f"{awaiting}self._pipeline"
+        lines.append(f"        api_request = {arguments[0]}")
+        lines.append("        if stream:")
+        lines.append(
+            f"            return {pipeline}.request_binary_stream(api_request)"
+        )
+        lines.append(f"        return {pipeline}.request_binary(api_request)")
+        return lines
     call = f"{awaiting}self._pipeline.{plan.call}({', '.join(arguments)})"
     lines.append(f"        {'' if plan.returns == 'None' else 'return '}{call}")
     return lines
@@ -916,12 +1002,19 @@ def render_resource(ir: Ir, root: ResourceNode) -> str:
     header = [
         "from collections.abc import Sequence",
         "from datetime import datetime",
+        "from typing import Literal, overload",
         "",
         "import httpx",
         "from pydantic import TypeAdapter",
         "",
         "from .._core._files import FileInput",
-        "from .._core._models import BinaryResponse",
+        "from .._core._models import (",
+        "    AsyncBinaryStream,",
+        "    BinaryResponse,",
+        "    BinaryStream,",
+        "    ETagSource,",
+        "    NotModified,",
+        ")",
         "from .._core._pagination import AsyncPage, SyncPage",
         "from .._core._pipeline import AsyncPipeline, SyncPipeline",
         "from .._core._request import ApiRequest, RequestOptions, with_fixed",

@@ -21,7 +21,14 @@ from ._core._errors import (
     WebhookSignatureErrorCode,
 )
 from ._core._files import FileInput
-from ._core._models import BinaryResponse, LastResponse
+from ._core._models import (
+    AsyncBinaryStream,
+    BinaryResponse,
+    BinaryStream,
+    ETagSource,
+    LastResponse,
+    NotModified,
+)
 from ._core._pagination import AsyncPage, SyncPage
 from ._core._sentinel import NOT_GIVEN, NotGiven
 from ._extensions.events import AsyncEventTail, EventTail
@@ -34,12 +41,15 @@ __all__ = [
     "APIError",
     "APITimeoutError",
     "AppInfo",
+    "AsyncBinaryStream",
     "AsyncEventTail",
     "AsyncPage",
     "AsyncTeachMeHipaa",
     "AuthenticationError",
     "BinaryResponse",
+    "BinaryStream",
     "ConflictError",
+    "ETagSource",
     "Environment",
     "EventTail",
     "FieldError",
@@ -49,6 +59,7 @@ __all__ = [
     "LastResponse",
     "NotFoundError",
     "NotGiven",
+    "NotModified",
     "OAuthError",
     "PermissionDeniedError",
     "PreconditionFailedError",

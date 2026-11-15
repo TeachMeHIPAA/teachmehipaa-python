@@ -1,10 +1,15 @@
 # Generated from openapi/sdk-ir.json — do not edit.
 # Regenerate with `uv run python scripts/generate.py`.
 
+from typing import Literal, overload
 
 import httpx
 
-from .._core._models import BinaryResponse
+from .._core._models import (
+    AsyncBinaryStream,
+    BinaryResponse,
+    BinaryStream,
+)
 from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions
 from .._core._resource import AsyncAPIResource, SyncAPIResource
@@ -19,36 +24,75 @@ from ..types import (
 
 
 class Certificates(SyncAPIResource):
+    @overload
     def download_pdf(
         self,
         cert_id: str,
         /,
         *,
+        stream: Literal[False] = False,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> BinaryResponse:
+    ) -> BinaryResponse: ...
+
+    @overload
+    def download_pdf(
+        self,
+        cert_id: str,
+        /,
+        *,
+        stream: Literal[True],
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> BinaryStream: ...
+
+    @overload
+    def download_pdf(
+        self,
+        cert_id: str,
+        /,
+        *,
+        stream: bool,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> BinaryResponse | BinaryStream: ...
+
+    def download_pdf(
+        self,
+        cert_id: str,
+        /,
+        *,
+        stream: bool = False,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> BinaryResponse | BinaryStream:
         """Download a certificate
 
         Downloads the certificate as a PDF. Revoked and expired certificates are
         watermarked. Requires the `certificates:read` scope.
 
-        Returns the file's bytes with its content type and filename.
+        Returns the file's bytes with its content type and filename, or with
+        `stream=True` a stream to read them from.
 
         Args:
+            stream: Return a stream (`BinaryStream`, or `AsyncBinaryStream` on the async
+                client) as soon as the headers arrive instead of reading the whole file.
+                Use it as a context manager so the connection is released.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request_binary(
-            ApiRequest(
-                "GET",
-                "/organizations/{orgId}/certificates/{certId}/content",
-                path_params={"certId": cert_id},
-                headers={"accept": "application/pdf"},
-                org_scoped=True,
-                retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
-            )
+        api_request = ApiRequest(
+            "GET",
+            "/organizations/{orgId}/certificates/{certId}/content",
+            path_params={"certId": cert_id},
+            binary_content_type="application/pdf",
+            org_scoped=True,
+            retry_safe=True,
+            options=RequestOptions(max_retries=max_retries, timeout=timeout),
         )
+        if stream:
+            return self._pipeline.request_binary_stream(api_request)
+        return self._pipeline.request_binary(api_request)
 
     def export(
         self,
@@ -181,36 +225,75 @@ class Certificates(SyncAPIResource):
 
 
 class AsyncCertificates(AsyncAPIResource):
+    @overload
     async def download_pdf(
         self,
         cert_id: str,
         /,
         *,
+        stream: Literal[False] = False,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> BinaryResponse:
+    ) -> BinaryResponse: ...
+
+    @overload
+    async def download_pdf(
+        self,
+        cert_id: str,
+        /,
+        *,
+        stream: Literal[True],
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> AsyncBinaryStream: ...
+
+    @overload
+    async def download_pdf(
+        self,
+        cert_id: str,
+        /,
+        *,
+        stream: bool,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> BinaryResponse | AsyncBinaryStream: ...
+
+    async def download_pdf(
+        self,
+        cert_id: str,
+        /,
+        *,
+        stream: bool = False,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> BinaryResponse | AsyncBinaryStream:
         """Download a certificate
 
         Downloads the certificate as a PDF. Revoked and expired certificates are
         watermarked. Requires the `certificates:read` scope.
 
-        Returns the file's bytes with its content type and filename.
+        Returns the file's bytes with its content type and filename, or with
+        `stream=True` a stream to read them from.
 
         Args:
+            stream: Return a stream (`BinaryStream`, or `AsyncBinaryStream` on the async
+                client) as soon as the headers arrive instead of reading the whole file.
+                Use it as a context manager so the connection is released.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request_binary(
-            ApiRequest(
-                "GET",
-                "/organizations/{orgId}/certificates/{certId}/content",
-                path_params={"certId": cert_id},
-                headers={"accept": "application/pdf"},
-                org_scoped=True,
-                retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
-            )
+        api_request = ApiRequest(
+            "GET",
+            "/organizations/{orgId}/certificates/{certId}/content",
+            path_params={"certId": cert_id},
+            binary_content_type="application/pdf",
+            org_scoped=True,
+            retry_safe=True,
+            options=RequestOptions(max_retries=max_retries, timeout=timeout),
         )
+        if stream:
+            return await self._pipeline.request_binary_stream(api_request)
+        return await self._pipeline.request_binary(api_request)
 
     async def export(
         self,

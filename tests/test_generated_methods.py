@@ -511,7 +511,7 @@ def test_a_certificate_pdf_downloads_as_bytes(api: FakeApi) -> None:
     assert download.filename == "certificate.pdf"
     assert download.last_response.status == 200
     [request] = api.requests_to("GET", path)
-    assert request.headers["accept"] == "application/pdf"
+    assert request.headers["accept"] == "application/pdf, application/problem+json"
 
 
 def test_previewing_an_import_sends_the_csv_and_pinned_options(

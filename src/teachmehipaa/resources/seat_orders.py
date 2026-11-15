@@ -1,9 +1,14 @@
 # Generated from openapi/sdk-ir.json — do not edit.
 # Regenerate with `uv run python scripts/generate.py`.
 
+from typing import overload
 
 import httpx
 
+from .._core._models import (
+    ETagSource,
+    NotModified,
+)
 from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions
 from .._core._resource import AsyncAPIResource, SyncAPIResource
@@ -134,15 +139,37 @@ class SeatOrders(SyncAPIResource):
             SeatOrderQuote,
         )
 
+    @overload
     def retrieve(
         self,
         seat_order_id: str,
         /,
         *,
-        if_none_match: str | NotGiven = NOT_GIVEN,
+        if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> SeatOrder:
+    ) -> SeatOrder: ...
+
+    @overload
+    def retrieve(
+        self,
+        seat_order_id: str,
+        /,
+        *,
+        if_none_match: ETagSource,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> SeatOrder | NotModified: ...
+
+    def retrieve(
+        self,
+        seat_order_id: str,
+        /,
+        *,
+        if_none_match: ETagSource | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> SeatOrder | NotModified:
         """Retrieve a seat order
 
         Retrieves a seat order, its status and the seats it granted. Requires the
@@ -150,16 +177,18 @@ class SeatOrders(SyncAPIResource):
 
         Args:
             seat_order_id: The seat order id (`so_` + ULID).
-            if_none_match: An ETag the caller already holds.
+            if_none_match: The ETag of the copy the caller holds, or that copy itself.
+                When it is still current the API answers 304 and the method returns
+                `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return self._pipeline.request_conditional(
             ApiRequest(
                 "GET",
                 "/organizations/{orgId}/seat-orders/{seatOrderId}",
                 path_params={"seatOrderId": seat_order_id},
-                headers={"if-none-match": if_none_match},
+                if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
@@ -285,15 +314,37 @@ class AsyncSeatOrders(AsyncAPIResource):
             SeatOrderQuote,
         )
 
+    @overload
     async def retrieve(
         self,
         seat_order_id: str,
         /,
         *,
-        if_none_match: str | NotGiven = NOT_GIVEN,
+        if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> SeatOrder:
+    ) -> SeatOrder: ...
+
+    @overload
+    async def retrieve(
+        self,
+        seat_order_id: str,
+        /,
+        *,
+        if_none_match: ETagSource,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> SeatOrder | NotModified: ...
+
+    async def retrieve(
+        self,
+        seat_order_id: str,
+        /,
+        *,
+        if_none_match: ETagSource | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> SeatOrder | NotModified:
         """Retrieve a seat order
 
         Retrieves a seat order, its status and the seats it granted. Requires the
@@ -301,16 +352,18 @@ class AsyncSeatOrders(AsyncAPIResource):
 
         Args:
             seat_order_id: The seat order id (`so_` + ULID).
-            if_none_match: An ETag the caller already holds.
+            if_none_match: The ETag of the copy the caller holds, or that copy itself.
+                When it is still current the API answers 304 and the method returns
+                `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await self._pipeline.request_conditional(
             ApiRequest(
                 "GET",
                 "/organizations/{orgId}/seat-orders/{seatOrderId}",
                 path_params={"seatOrderId": seat_order_id},
-                headers={"if-none-match": if_none_match},
+                if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),

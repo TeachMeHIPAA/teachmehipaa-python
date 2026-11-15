@@ -3,6 +3,7 @@ pipelines. Nothing here performs I/O."""
 
 from __future__ import annotations
 
+import contextlib
 import json
 import re
 import uuid
@@ -10,7 +11,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
 from typing import TypeVar
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 
 import httpx
 from pydantic import TypeAdapter
@@ -23,7 +24,7 @@ from ._errors import (
     unexpected_response_error,
 )
 from ._files import Upload
-from ._models import BaseModel, BinaryResponse, LastResponse
+from ._models import BaseModel, BinaryResponse, ETagSource, LastResponse, NotModified
 from ._sentinel import NOT_GIVEN, NotGiven
 
 QueryValue = str | int | float | bool | datetime | None
@@ -31,7 +32,8 @@ ModelT = TypeVar("ModelT", bound=BaseModel)
 T = TypeVar("T")
 
 _PATH_PARAM = re.compile(r"\{(\w+)\}")
-_FILENAME = re.compile(r'filename="?([^";]+)"?')
+_FILENAME = re.compile(r'filename="?([^";]+)"?', re.IGNORECASE)
+_ENCODED_FILENAME = re.compile(r"filename\*=UTF-8''([^;\s]+)", re.IGNORECASE)
 
 
 @dataclass(frozen=True)
@@ -66,6 +68,11 @@ class ApiRequest:
     `binary_parts` names the file fields and their content types; the
     pipeline reads those files into `Upload`s before sending. Every other
     field is sent as a JSON part.
+
+    `if_match` and `if_none_match` are checked when the request is built, so
+    an object without an ETag is refused before anything is sent. A call
+    with `if_none_match` treats 304 as a success. `binary_content_type` is
+    the file type a binary download answers with.
     """
 
     method: str
@@ -76,11 +83,29 @@ class ApiRequest:
     body: Mapping[str, object] | None = None
     content_type: str = "application/json"
     binary_parts: Mapping[str, str] = field(default_factory=dict)
+    if_match: ETagSource | NotGiven = NOT_GIVEN
+    if_none_match: ETagSource | NotGiven = NOT_GIVEN
+    binary_content_type: str | None = None
     org_scoped: bool = False
     authenticated: bool = True
     retry_safe: bool = False
     idempotency_key_required: bool = False
     options: RequestOptions = field(default_factory=RequestOptions)
+
+    def __post_init__(self) -> None:
+        self.conditional_headers()
+
+    def conditional_headers(self) -> dict[str, str]:
+        headers = {}
+        if not isinstance(self.if_match, NotGiven):
+            headers["if-match"] = _etag_of(self.if_match, "if_match")
+        if not isinstance(self.if_none_match, NotGiven):
+            headers["if-none-match"] = _etag_of(self.if_none_match, "if_none_match")
+        return headers
+
+    @property
+    def conditional_read(self) -> bool:
+        return not isinstance(self.if_none_match, NotGiven)
 
     def max_retries(self, config: ClientConfig) -> int:
         if isinstance(self.options.max_retries, NotGiven):
@@ -119,10 +144,15 @@ def build_request(
         for name, value in api_request.query.items()
         if not isinstance(value, NotGiven)
     }
+    accept = "application/json"
+    if api_request.binary_content_type is not None:
+        # Errors still arrive as problem+json, so a download accepts both.
+        accept = f"{api_request.binary_content_type}, application/problem+json"
     headers = {
-        "accept": "application/json",
+        "accept": accept,
         "user-agent": config.user_agent,
         **_given(api_request.headers),
+        **api_request.conditional_headers(),
     }
     if access_token is not None:
         headers["authorization"] = f"Bearer {access_token}"
@@ -178,6 +208,21 @@ def with_fixed(
     return {**({} if isinstance(value, NotGiven) else value), **fixed}
 
 
+def _etag_of(source: ETagSource, argument: str) -> str:
+    if isinstance(source, str):
+        return source
+    try:
+        etag = source.last_response.etag
+    except RuntimeError as exc:
+        raise ValueError(f"{argument} was given an object with no ETag") from exc
+    if etag is None:
+        raise ValueError(
+            f"{argument} was given a {type(source).__name__} whose response had "
+            "no ETag; pass the ETag string instead"
+        )
+    return etag
+
+
 def _given(values: Mapping[str, T | NotGiven]) -> dict[str, T]:
     return {
         name: value for name, value in values.items() if not isinstance(value, NotGiven)
@@ -231,6 +276,14 @@ def _with_last_response(parsed: T, response: httpx.Response) -> T:
     return parsed
 
 
+def read_conditional(
+    response: httpx.Response, model: type[ModelT], *, conditional: bool
+) -> ModelT | NotModified:
+    if conditional and response.status_code == 304:
+        return NotModified(LastResponse(response.status_code, response.headers))
+    return read_model(response, model)
+
+
 def read_model(response: httpx.Response, model: type[ModelT]) -> ModelT:
     parsed = model.model_validate(_checked(response).json())
     return _with_last_response(parsed, response)
@@ -249,15 +302,36 @@ def read_write_result(response: httpx.Response, model: type[ModelT]) -> ModelT:
     return _with_last_response(parsed, response)
 
 
-def read_binary(response: httpx.Response) -> BinaryResponse:
+def is_expected_file(response: httpx.Response, api_request: ApiRequest) -> bool:
+    """Whether a success carries the file type the IR promises. Unknown
+    paths answer 200 with an HTML page, which must not be handed back as a
+    PDF."""
+    content_type: str = response.headers.get("content-type", "")
+    expected = api_request.binary_content_type or ""
+    return content_type.split(";")[0].strip().lower() == expected.lower()
+
+
+def filename_of(response: httpx.Response) -> str | None:
+    # RFC 6266: prefer the UTF-8 `filename*`, else the plain `filename`.
+    disposition = response.headers.get("content-disposition", "")
+    encoded = _ENCODED_FILENAME.search(disposition)
+    if encoded is not None:
+        # Malformed percent-encoding falls back to the plain parameter.
+        with contextlib.suppress(UnicodeDecodeError):
+            return unquote(encoded[1], errors="strict")
+    plain = _FILENAME.search(disposition)
+    return None if plain is None else plain[1]
+
+
+def read_binary(response: httpx.Response, api_request: ApiRequest) -> BinaryResponse:
     if response.is_error:
         raise error_from_response(response)
-    disposition = response.headers.get("content-disposition", "")
-    filename = _FILENAME.search(disposition)
+    if not is_expected_file(response, api_request):
+        raise unexpected_response_error(response)
     return BinaryResponse(
         content=response.content,
         content_type=response.headers.get("content-type"),
-        filename=None if filename is None else filename[1],
+        filename=filename_of(response),
         last_response=LastResponse(response.status_code, response.headers),
     )
 

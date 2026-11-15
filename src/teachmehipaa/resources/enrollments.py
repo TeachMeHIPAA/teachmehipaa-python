@@ -1,11 +1,16 @@
 # Generated from openapi/sdk-ir.json — do not edit.
 # Regenerate with `uv run python scripts/generate.py`.
 
+from typing import overload
 
 import httpx
 from pydantic import TypeAdapter
 
 from .._core._files import FileInput
+from .._core._models import (
+    ETagSource,
+    NotModified,
+)
 from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions, with_fixed
 from .._core._resource import AsyncAPIResource, SyncAPIResource
@@ -492,30 +497,54 @@ class Enrollments(SyncAPIResource):
             EnrollmentActionAccepted,
         )
 
+    @overload
     def retrieve(
         self,
         enrollment_id: str,
         /,
         *,
-        if_none_match: str | NotGiven = NOT_GIVEN,
+        if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Enrollment:
+    ) -> Enrollment: ...
+
+    @overload
+    def retrieve(
+        self,
+        enrollment_id: str,
+        /,
+        *,
+        if_none_match: ETagSource,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> Enrollment | NotModified: ...
+
+    def retrieve(
+        self,
+        enrollment_id: str,
+        /,
+        *,
+        if_none_match: ETagSource | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> Enrollment | NotModified:
         """Retrieve an enrollment
 
         Retrieves an enrollment. Requires the `enrollments:read` scope.
 
         Args:
-            if_none_match: An ETag the caller already holds.
+            if_none_match: The ETag of the copy the caller holds, or that copy itself.
+                When it is still current the API answers 304 and the method returns
+                `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return self._pipeline.request_conditional(
             ApiRequest(
                 "GET",
                 "/organizations/{orgId}/enrollments/{enrollmentId}",
                 path_params={"enrollmentId": enrollment_id},
-                headers={"if-none-match": if_none_match},
+                if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
@@ -982,30 +1011,54 @@ class AsyncEnrollments(AsyncAPIResource):
             EnrollmentActionAccepted,
         )
 
+    @overload
     async def retrieve(
         self,
         enrollment_id: str,
         /,
         *,
-        if_none_match: str | NotGiven = NOT_GIVEN,
+        if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Enrollment:
+    ) -> Enrollment: ...
+
+    @overload
+    async def retrieve(
+        self,
+        enrollment_id: str,
+        /,
+        *,
+        if_none_match: ETagSource,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> Enrollment | NotModified: ...
+
+    async def retrieve(
+        self,
+        enrollment_id: str,
+        /,
+        *,
+        if_none_match: ETagSource | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> Enrollment | NotModified:
         """Retrieve an enrollment
 
         Retrieves an enrollment. Requires the `enrollments:read` scope.
 
         Args:
-            if_none_match: An ETag the caller already holds.
+            if_none_match: The ETag of the copy the caller holds, or that copy itself.
+                When it is still current the API answers 304 and the method returns
+                `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await self._pipeline.request_conditional(
             ApiRequest(
                 "GET",
                 "/organizations/{orgId}/enrollments/{enrollmentId}",
                 path_params={"enrollmentId": enrollment_id},
-                headers={"if-none-match": if_none_match},
+                if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
