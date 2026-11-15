@@ -43,3 +43,13 @@ class BaseModel(pydantic.BaseModel):
                 f"this {type(self).__name__} was not returned by an API call"
             )
         return self._last_response
+
+
+@dataclass(frozen=True)
+class BinaryResponse:
+    """A file the API answered with, such as a Certificate PDF."""
+
+    content: bytes
+    content_type: str | None
+    filename: str | None
+    last_response: LastResponse

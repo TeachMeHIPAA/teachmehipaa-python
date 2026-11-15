@@ -23,6 +23,8 @@ jobs:
         with:
           python-version: ${{ matrix.python-version }}
       - run: uv sync --locked
+      - name: Generated code is current
+        run: uv run python scripts/generate.py --check
       - name: Lint
         run: uv run ruff check
       - name: Format

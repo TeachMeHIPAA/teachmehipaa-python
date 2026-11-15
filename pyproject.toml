@@ -12,7 +12,8 @@ license-files = ["LICENSE"]
 requires-python = ">=3.10"
 dependencies = [
   "httpx>=0.27,<1",
-  "pydantic>=2,<3",
+  "pydantic>=2.5,<3",
+  "typing-extensions>=4.7",
 ]
 classifiers = [
   "Development Status :: 3 - Alpha",
@@ -32,10 +33,12 @@ Repository = "https://github.com/TeachMeHIPAA/teachmehipaa-python"
 
 [dependency-groups]
 dev = [
+  "jsonschema>=4.26.0",
   "mypy>=1.13",
   "pytest>=8.3",
   "pytest-asyncio>=0.24",
   "ruff>=0.8",
+  "types-jsonschema>=4.26.0.20261006",
 ]
 
 [tool.hatch.version]
@@ -53,13 +56,13 @@ filterwarnings = ["error"]
 [tool.mypy]
 strict = true
 python_version = "3.10"
-files = ["src", "tests"]
+files = ["src", "tests", "scripts"]
 plugins = ["pydantic.mypy"]
 
 [tool.ruff]
 line-length = 88
 target-version = "py310"
-src = ["src", "tests"]
+src = ["src", "tests", "scripts"]
 # Research docs quote other projects' code verbatim.
 extend-exclude = ["docs"]
 

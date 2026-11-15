@@ -18,7 +18,9 @@ from ._core._errors import (
     RateLimitError,
     TeachMeHipaaError,
 )
-from ._core._models import LastResponse
+from ._core._files import FileInput
+from ._core._models import BinaryResponse, LastResponse
+from ._core._pagination import AsyncPage, SyncPage
 from ._core._sentinel import NOT_GIVEN, NotGiven
 from ._version import __version__
 
@@ -28,11 +30,14 @@ __all__ = [
     "APIError",
     "APITimeoutError",
     "AppInfo",
+    "AsyncPage",
     "AsyncTeachMeHipaa",
     "AuthenticationError",
+    "BinaryResponse",
     "ConflictError",
     "Environment",
     "FieldError",
+    "FileInput",
     "IdempotencyError",
     "InvalidRequestError",
     "LastResponse",
@@ -42,6 +47,7 @@ __all__ = [
     "PermissionDeniedError",
     "PreconditionFailedError",
     "RateLimitError",
+    "SyncPage",
     "TeachMeHipaa",
     "TeachMeHipaaError",
     "__version__",

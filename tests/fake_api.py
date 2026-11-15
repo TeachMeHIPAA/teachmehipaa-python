@@ -72,12 +72,18 @@ class Reply:
     content_type: str = "application/json"
     # Sent verbatim instead of `json`, for non-JSON bodies.
     text: str | None = None
+    content: bytes | None = None
 
     def to_response(self) -> httpx.Response:
-        content = json.dumps(self.json) if self.text is None else self.text
+        if self.content is not None:
+            content = self.content
+        else:
+            content = (
+                json.dumps(self.json) if self.text is None else self.text
+            ).encode()
         return httpx.Response(
             self.status,
-            content=content.encode(),
+            content=content,
             headers={"content-type": self.content_type, **self.headers},
         )
 
