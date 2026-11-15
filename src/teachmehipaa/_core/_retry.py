@@ -84,13 +84,22 @@ class SyncSender:
         map_error: ErrorMapper,
         policy: RetryPolicy,
         replay: Replay | None = None,
+        *,
+        stream: bool = False,
     ) -> httpx.Response:
+        """With `stream`, a success comes back with its body unread; an error
+        is still read, to map it, and closed."""
         retries = 0
         replayed = False
         while True:
             request = make_request()
             try:
-                response = self._http_client.send(request)
+                response = self._http_client.send(request, stream=stream)
+                if response.is_error and stream:
+                    try:
+                        response.read()
+                    finally:
+                        response.close()
             except httpx.TransportError as exc:
                 error: TeachMeHipaaError = connection_error(exc)
             else:
@@ -125,13 +134,22 @@ class AsyncSender:
         map_error: ErrorMapper,
         policy: RetryPolicy,
         replay: Replay | None = None,
+        *,
+        stream: bool = False,
     ) -> httpx.Response:
+        """With `stream`, a success comes back with its body unread; an error
+        is still read, to map it, and closed."""
         retries = 0
         replayed = False
         while True:
             request = await make_request()
             try:
-                response = await self._http_client.send(request)
+                response = await self._http_client.send(request, stream=stream)
+                if response.is_error and stream:
+                    try:
+                        await response.aread()
+                    finally:
+                        await response.aclose()
             except httpx.TransportError as exc:
                 error: TeachMeHipaaError = connection_error(exc)
             else:

@@ -13,9 +13,9 @@ from pydantic import TypeAdapter
 
 from ._auth import AsyncTokenProvider, TokenProvider
 from ._config import ClientConfig
-from ._errors import error_from_response
+from ._errors import error_from_response, unexpected_response_error
 from ._files import read_uploads
-from ._models import BinaryResponse
+from ._models import AsyncBinaryStream, BinaryResponse, BinaryStream, NotModified
 from ._pagination import AsyncPage, ItemT, PageBody, PaginationStyle, SyncPage
 from ._request import (
     INTROSPECTION,
@@ -24,7 +24,10 @@ from ._request import (
     T,
     bearer_token,
     build_request,
+    filename_of,
+    is_expected_file,
     read_binary,
+    read_conditional,
     read_model,
     read_organization_id,
     read_union,
@@ -69,6 +72,13 @@ class SyncPipeline:
     def request(self, api_request: ApiRequest, model: type[ModelT]) -> ModelT:
         return read_model(self.send(api_request), model)
 
+    def request_conditional(
+        self, api_request: ApiRequest, model: type[ModelT]
+    ) -> ModelT | NotModified:
+        return read_conditional(
+            self.send(api_request), model, conditional=api_request.conditional_read
+        )
+
     def request_union(self, api_request: ApiRequest, adapter: TypeAdapter[T]) -> T:
         return read_union(self.send(api_request), adapter)
 
@@ -98,14 +108,33 @@ class SyncPipeline:
         self.send(api_request)
 
     def request_binary(self, api_request: ApiRequest) -> BinaryResponse:
-        return read_binary(self.send(api_request))
+        return read_binary(self.send(api_request), api_request)
 
-    def send(self, api_request: ApiRequest) -> httpx.Response:
+    def request_binary_stream(self, api_request: ApiRequest) -> BinaryStream:
+        response = self.send(api_request, stream=True)
+        if not is_expected_file(response, api_request):
+            try:
+                response.read()
+            finally:
+                response.close()
+            raise unexpected_response_error(response)
+        return BinaryStream(
+            response,
+            content_type=response.headers.get("content-type"),
+            filename=filename_of(response),
+        )
+
+    def send(self, api_request: ApiRequest, *, stream: bool = False) -> httpx.Response:
+        api_request = read_uploads(api_request)
         organization_id = self._organization() if api_request.org_scoped else None
-        return self._send(read_uploads(api_request), organization_id)
+        return self._send(api_request, organization_id, stream=stream)
 
     def _send(
-        self, api_request: ApiRequest, organization_id: str | None
+        self,
+        api_request: ApiRequest,
+        organization_id: str | None,
+        *,
+        stream: bool = False,
     ) -> httpx.Response:
         idempotency_key = api_request.idempotency_key()
         return self._sender.send(
@@ -121,6 +150,7 @@ class SyncPipeline:
             error_from_response,
             _retry_policy(self.config, api_request),
             replay=_replay(api_request, self._tokens.invalidate),
+            stream=stream,
         )
 
     def _organization(self) -> str:
@@ -149,6 +179,15 @@ class AsyncPipeline:
 
     async def request(self, api_request: ApiRequest, model: type[ModelT]) -> ModelT:
         return read_model(await self.send(api_request), model)
+
+    async def request_conditional(
+        self, api_request: ApiRequest, model: type[ModelT]
+    ) -> ModelT | NotModified:
+        return read_conditional(
+            await self.send(api_request),
+            model,
+            conditional=api_request.conditional_read,
+        )
 
     async def request_union(
         self, api_request: ApiRequest, adapter: TypeAdapter[T]
@@ -181,14 +220,37 @@ class AsyncPipeline:
         await self.send(api_request)
 
     async def request_binary(self, api_request: ApiRequest) -> BinaryResponse:
-        return read_binary(await self.send(api_request))
+        return read_binary(await self.send(api_request), api_request)
 
-    async def send(self, api_request: ApiRequest) -> httpx.Response:
+    async def request_binary_stream(self, api_request: ApiRequest) -> AsyncBinaryStream:
+        response = await self.send(api_request, stream=True)
+        if not is_expected_file(response, api_request):
+            try:
+                await response.aread()
+            finally:
+                await response.aclose()
+            raise unexpected_response_error(response)
+        return AsyncBinaryStream(
+            response,
+            content_type=response.headers.get("content-type"),
+            filename=filename_of(response),
+        )
+
+    async def send(
+        self, api_request: ApiRequest, *, stream: bool = False
+    ) -> httpx.Response:
+        if api_request.binary_parts:
+            # Reading a file blocks; keep it off the event loop.
+            api_request = await asyncio.to_thread(read_uploads, api_request)
         organization_id = await self._organization() if api_request.org_scoped else None
-        return await self._send(read_uploads(api_request), organization_id)
+        return await self._send(api_request, organization_id, stream=stream)
 
     async def _send(
-        self, api_request: ApiRequest, organization_id: str | None
+        self,
+        api_request: ApiRequest,
+        organization_id: str | None,
+        *,
+        stream: bool = False,
     ) -> httpx.Response:
         idempotency_key = api_request.idempotency_key()
 
@@ -210,6 +272,7 @@ class AsyncPipeline:
             error_from_response,
             _retry_policy(self.config, api_request),
             replay=_replay(api_request, self._tokens.invalidate),
+            stream=stream,
         )
 
     async def _organization(self) -> str:

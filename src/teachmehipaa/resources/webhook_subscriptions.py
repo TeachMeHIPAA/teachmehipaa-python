@@ -2,9 +2,14 @@
 # Regenerate with `uv run python scripts/generate.py`.
 
 from collections.abc import Sequence
+from typing import overload
 
 import httpx
 
+from .._core._models import (
+    ETagSource,
+    NotModified,
+)
 from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions
 from .._core._resource import AsyncAPIResource, SyncAPIResource
@@ -176,15 +181,37 @@ class WebhookSubscriptions(SyncAPIResource):
             Operation[WebhookDeliveryResult],
         )
 
+    @overload
     def retrieve(
         self,
         subscription_id: str,
         /,
         *,
-        if_none_match: str | NotGiven = NOT_GIVEN,
+        if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> WebhookSubscription:
+    ) -> WebhookSubscription: ...
+
+    @overload
+    def retrieve(
+        self,
+        subscription_id: str,
+        /,
+        *,
+        if_none_match: ETagSource,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> WebhookSubscription | NotModified: ...
+
+    def retrieve(
+        self,
+        subscription_id: str,
+        /,
+        *,
+        if_none_match: ETagSource | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> WebhookSubscription | NotModified:
         """Retrieve a webhook subscription
 
         Retrieves a webhook subscription. Requires the `webhooks:manage` or `org:admin`
@@ -192,16 +219,18 @@ class WebhookSubscriptions(SyncAPIResource):
 
         Args:
             subscription_id: The webhook subscription id.
-            if_none_match: An ETag the caller already holds.
+            if_none_match: The ETag of the copy the caller holds, or that copy itself.
+                When it is still current the API answers 304 and the method returns
+                `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return self._pipeline.request_conditional(
             ApiRequest(
                 "GET",
                 "/organizations/{orgId}/webhook-subscriptions/{subscriptionId}",
                 path_params={"subscriptionId": subscription_id},
-                headers={"if-none-match": if_none_match},
+                if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
@@ -253,7 +282,7 @@ class WebhookSubscriptions(SyncAPIResource):
         subscription_id: str,
         /,
         *,
-        if_match: str,
+        if_match: ETagSource,
         endpoint_url: str | NotGiven = NOT_GIVEN,
         event_types: Sequence[EventType] | NotGiven = NOT_GIVEN,
         enabled: bool | NotGiven = NOT_GIVEN,
@@ -270,7 +299,9 @@ class WebhookSubscriptions(SyncAPIResource):
 
         Args:
             subscription_id: The webhook subscription id.
-            if_match: The ETag the object was read with (`last_response.etag`).
+            if_match: The ETag the object was read with, or the object itself (its
+                `last_response.etag` is sent). A stale ETag raises
+                `PreconditionFailedError`; `"*"` matches any version.
             endpoint_url: The HTTPS URL to deliver events to.
             event_types: The event types to deliver.
             enabled: Turn deliveries on or off.
@@ -293,7 +324,7 @@ class WebhookSubscriptions(SyncAPIResource):
                     "seatsLowThreshold": seats_low_threshold,
                 },
                 content_type="application/merge-patch+json",
-                headers={"if-match": if_match},
+                if_match=if_match,
                 org_scoped=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
             ),
@@ -453,15 +484,37 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
             AsyncOperation[WebhookDeliveryResult],
         )
 
+    @overload
     async def retrieve(
         self,
         subscription_id: str,
         /,
         *,
-        if_none_match: str | NotGiven = NOT_GIVEN,
+        if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> WebhookSubscription:
+    ) -> WebhookSubscription: ...
+
+    @overload
+    async def retrieve(
+        self,
+        subscription_id: str,
+        /,
+        *,
+        if_none_match: ETagSource,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> WebhookSubscription | NotModified: ...
+
+    async def retrieve(
+        self,
+        subscription_id: str,
+        /,
+        *,
+        if_none_match: ETagSource | NotGiven = NOT_GIVEN,
+        max_retries: int | NotGiven = NOT_GIVEN,
+        timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+    ) -> WebhookSubscription | NotModified:
         """Retrieve a webhook subscription
 
         Retrieves a webhook subscription. Requires the `webhooks:manage` or `org:admin`
@@ -469,16 +522,18 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
 
         Args:
             subscription_id: The webhook subscription id.
-            if_none_match: An ETag the caller already holds.
+            if_none_match: The ETag of the copy the caller holds, or that copy itself.
+                When it is still current the API answers 304 and the method returns
+                `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await self._pipeline.request_conditional(
             ApiRequest(
                 "GET",
                 "/organizations/{orgId}/webhook-subscriptions/{subscriptionId}",
                 path_params={"subscriptionId": subscription_id},
-                headers={"if-none-match": if_none_match},
+                if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
@@ -530,7 +585,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         subscription_id: str,
         /,
         *,
-        if_match: str,
+        if_match: ETagSource,
         endpoint_url: str | NotGiven = NOT_GIVEN,
         event_types: Sequence[EventType] | NotGiven = NOT_GIVEN,
         enabled: bool | NotGiven = NOT_GIVEN,
@@ -547,7 +602,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
 
         Args:
             subscription_id: The webhook subscription id.
-            if_match: The ETag the object was read with (`last_response.etag`).
+            if_match: The ETag the object was read with, or the object itself (its
+                `last_response.etag` is sent). A stale ETag raises
+                `PreconditionFailedError`; `"*"` matches any version.
             endpoint_url: The HTTPS URL to deliver events to.
             event_types: The event types to deliver.
             enabled: Turn deliveries on or off.
@@ -570,7 +627,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                     "seatsLowThreshold": seats_low_threshold,
                 },
                 content_type="application/merge-patch+json",
-                headers={"if-match": if_match},
+                if_match=if_match,
                 org_scoped=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
             ),

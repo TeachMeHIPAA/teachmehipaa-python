@@ -5,6 +5,9 @@ from collections.abc import Sequence
 
 import httpx
 
+from .._core._models import (
+    ETagSource,
+)
 from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions
 from .._core._resource import AsyncAPIResource, SyncAPIResource
@@ -272,7 +275,7 @@ class Learners(SyncAPIResource):
         /,
         *,
         course_id: str | NotGiven = NOT_GIVEN,
-        if_match: str | NotGiven = NOT_GIVEN,
+        if_match: ETagSource | NotGiven = NOT_GIVEN,
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
@@ -286,7 +289,9 @@ class Learners(SyncAPIResource):
         Args:
             learner_id: The learner's canonical subject id (sub_… ULID).
             course_id: The course. Defaults to the organization's default course.
-            if_match: The ETag the object was read with (`last_response.etag`).
+            if_match: The ETag the object was read with, or the object itself (its
+                `last_response.etag` is sent). A stale ETag raises
+                `PreconditionFailedError`; `"*"` matches any version.
             idempotency_key: Overrides the key generated for this call. Retries reuse
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
@@ -298,7 +303,7 @@ class Learners(SyncAPIResource):
                 "/organizations/{orgId}/learners/{learnerId}:offboard",
                 path_params={"learnerId": learner_id},
                 query={"courseId": course_id},
-                headers={"if-match": if_match},
+                if_match=if_match,
                 org_scoped=True,
                 retry_safe=True,
                 idempotency_key_required=True,
@@ -389,7 +394,7 @@ class Learners(SyncAPIResource):
         learner_id: str,
         /,
         *,
-        if_match: str,
+        if_match: ETagSource,
         name: str | NotGiven = NOT_GIVEN,
         external_id: str | NotGiven | None = NOT_GIVEN,
         course_id: str | NotGiven = NOT_GIVEN,
@@ -404,7 +409,9 @@ class Learners(SyncAPIResource):
 
         Args:
             learner_id: The learner's canonical subject id (sub_… ULID).
-            if_match: The ETag the object was read with (`last_response.etag`).
+            if_match: The ETag the object was read with, or the object itself (its
+                `last_response.etag` is sent). A stale ETag raises
+                `PreconditionFailedError`; `"*"` matches any version.
             name: The learner's full name.
             external_id: Your own id for the learner. Set it to `null` to clear it.
             course_id: The course. Defaults to the organization's default course.
@@ -419,7 +426,7 @@ class Learners(SyncAPIResource):
                 body={"name": name, "externalId": external_id},
                 content_type="application/merge-patch+json",
                 query={"courseId": course_id},
-                headers={"if-match": if_match},
+                if_match=if_match,
                 org_scoped=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
             ),
@@ -727,7 +734,7 @@ class AsyncLearners(AsyncAPIResource):
         /,
         *,
         course_id: str | NotGiven = NOT_GIVEN,
-        if_match: str | NotGiven = NOT_GIVEN,
+        if_match: ETagSource | NotGiven = NOT_GIVEN,
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
@@ -741,7 +748,9 @@ class AsyncLearners(AsyncAPIResource):
         Args:
             learner_id: The learner's canonical subject id (sub_… ULID).
             course_id: The course. Defaults to the organization's default course.
-            if_match: The ETag the object was read with (`last_response.etag`).
+            if_match: The ETag the object was read with, or the object itself (its
+                `last_response.etag` is sent). A stale ETag raises
+                `PreconditionFailedError`; `"*"` matches any version.
             idempotency_key: Overrides the key generated for this call. Retries reuse
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
@@ -753,7 +762,7 @@ class AsyncLearners(AsyncAPIResource):
                 "/organizations/{orgId}/learners/{learnerId}:offboard",
                 path_params={"learnerId": learner_id},
                 query={"courseId": course_id},
-                headers={"if-match": if_match},
+                if_match=if_match,
                 org_scoped=True,
                 retry_safe=True,
                 idempotency_key_required=True,
@@ -844,7 +853,7 @@ class AsyncLearners(AsyncAPIResource):
         learner_id: str,
         /,
         *,
-        if_match: str,
+        if_match: ETagSource,
         name: str | NotGiven = NOT_GIVEN,
         external_id: str | NotGiven | None = NOT_GIVEN,
         course_id: str | NotGiven = NOT_GIVEN,
@@ -859,7 +868,9 @@ class AsyncLearners(AsyncAPIResource):
 
         Args:
             learner_id: The learner's canonical subject id (sub_… ULID).
-            if_match: The ETag the object was read with (`last_response.etag`).
+            if_match: The ETag the object was read with, or the object itself (its
+                `last_response.etag` is sent). A stale ETag raises
+                `PreconditionFailedError`; `"*"` matches any version.
             name: The learner's full name.
             external_id: Your own id for the learner. Set it to `null` to clear it.
             course_id: The course. Defaults to the organization's default course.
@@ -874,7 +885,7 @@ class AsyncLearners(AsyncAPIResource):
                 body={"name": name, "externalId": external_id},
                 content_type="application/merge-patch+json",
                 query={"courseId": course_id},
-                headers={"if-match": if_match},
+                if_match=if_match,
                 org_scoped=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
             ),
