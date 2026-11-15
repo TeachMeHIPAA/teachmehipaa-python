@@ -9,12 +9,17 @@ from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions
 from .._core._resource import AsyncAPIResource, SyncAPIResource
 from .._core._sentinel import NOT_GIVEN, NotGiven
+from .._operations import (
+    AsyncOperation,
+    Operation,
+    async_request_operation,
+    request_operation,
+)
 from ..types import (
     Certificate,
     CertificateLinks,
     CertificatesExportRequestFormat,
     CertificatesPage,
-    Operation,
 )
 
 
@@ -70,7 +75,8 @@ class Certificates(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/certificates:export",
@@ -219,7 +225,7 @@ class AsyncCertificates(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation:
         """Export certificates
 
         Exports the organization's certificate records as CSV. Requires the
@@ -232,7 +238,8 @@ class AsyncCertificates(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/certificates:export",
@@ -246,7 +253,7 @@ class AsyncCertificates(AsyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            AsyncOperation,
         )
 
     async def list(

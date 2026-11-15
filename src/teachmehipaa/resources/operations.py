@@ -7,7 +7,12 @@ import httpx
 from .._core._request import ApiRequest, RequestOptions
 from .._core._resource import AsyncAPIResource, SyncAPIResource
 from .._core._sentinel import NOT_GIVEN, NotGiven
-from ..types import Operation
+from .._operations import (
+    AsyncOperation,
+    Operation,
+    async_request_operation,
+    request_operation,
+)
 
 
 class Operations(SyncAPIResource):
@@ -28,7 +33,8 @@ class Operations(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "GET",
                 "/organizations/{orgId}/operations/{operationId}",
@@ -49,7 +55,7 @@ class AsyncOperations(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation:
         """Retrieve an operation
 
         Retrieves a bulk operation and its result. Operations are kept for 24 hours.
@@ -59,7 +65,8 @@ class AsyncOperations(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "GET",
                 "/organizations/{orgId}/operations/{operationId}",
@@ -68,5 +75,5 @@ class AsyncOperations(AsyncAPIResource):
                 retry_safe=True,
                 options=RequestOptions(max_retries=max_retries, timeout=timeout),
             ),
-            Operation,
+            AsyncOperation,
         )

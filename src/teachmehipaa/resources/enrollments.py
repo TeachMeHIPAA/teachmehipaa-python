@@ -10,6 +10,12 @@ from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions, with_fixed
 from .._core._resource import AsyncAPIResource, SyncAPIResource
 from .._core._sentinel import NOT_GIVEN, NotGiven
+from .._operations import (
+    AsyncOperation,
+    Operation,
+    async_request_operation,
+    request_operation,
+)
 from ..types import (
     CancelEnrollmentResponse,
     Enrollment,
@@ -25,7 +31,6 @@ from ..types import (
     ListEnrollmentsArchived,
     ListEnrollmentsInclude,
     ListEnrollmentsStatus,
-    Operation,
     OrgEnrollmentListItem,
 )
 
@@ -102,7 +107,8 @@ class Enrollments(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/enrollments:batch",
@@ -223,7 +229,8 @@ class Enrollments(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/enrollments:export",
@@ -263,7 +270,8 @@ class Enrollments(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/enrollments:import",
@@ -575,7 +583,7 @@ class AsyncEnrollments(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation:
         """Update many enrollments
 
         Reminds, resends, cancels, renews, archives or unarchives up to 500 enrollments
@@ -592,7 +600,8 @@ class AsyncEnrollments(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/enrollments:batch",
@@ -606,7 +615,7 @@ class AsyncEnrollments(AsyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            AsyncOperation,
         )
 
     async def cancel(
@@ -700,7 +709,7 @@ class AsyncEnrollments(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation:
         """Export enrollments
 
         Exports the organization's enrollments as CSV. Requires the `enrollments:read`
@@ -713,7 +722,8 @@ class AsyncEnrollments(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/enrollments:export",
@@ -727,7 +737,7 @@ class AsyncEnrollments(AsyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            AsyncOperation,
         )
 
     async def import_(
@@ -738,7 +748,7 @@ class AsyncEnrollments(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation:
         """Import learners from CSV
 
         Invites everyone in a CSV file with an `email` column (and optional `name` and
@@ -753,7 +763,8 @@ class AsyncEnrollments(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/enrollments:import",
@@ -772,7 +783,7 @@ class AsyncEnrollments(AsyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            AsyncOperation,
         )
 
     async def list(

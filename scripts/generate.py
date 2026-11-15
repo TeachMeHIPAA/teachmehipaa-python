@@ -43,6 +43,13 @@ EXTENSIONS = PACKAGE / "_extensions"
 # client exposes those subclasses.
 EXTENDED_RESOURCES = frozenset({"events"})
 
+# The type of an Operation's `response`, by operationId, where the spec leaves
+# it untyped but the API documents it. Types come from `_operations.py`.
+OPERATION_RESPONSES = {
+    "redriveWebhookSubscription": "WebhookDeliveryResult",
+    "testWebhookSubscription": "WebhookDeliveryResult",
+}
+
 BANNER = (
     "# Generated from openapi/sdk-ir.json — do not edit.\n"
     "# Regenerate with `uv run python scripts/generate.py`.\n"
@@ -592,7 +599,13 @@ def response_plan(ir: Ir, method: Json) -> tuple[str, str, str | None]:
             return name, "request_union", f"_{constant(name)}"
         return name, "request", name
     if kind == "operation":
-        return response["type"]["name"], "request", response["type"]["name"]
+        if response["type"]["name"] != "Operation":
+            raise GeneratorError(f"no rule for {response['type']['name']} operations")
+        # `{operation}` becomes `Operation` or `AsyncOperation`, the
+        # hand-written subclasses with `wait()`.
+        result = OPERATION_RESPONSES.get(method["operationId"])
+        returns = "{operation}" if result is None else f"{{operation}}[{result}]"
+        return returns, "request_operation", returns
     if kind == "writeResult":
         name = response["type"]["name"]
         if "created" not in {f["name"] for f in ir.types[name]["fields"]}:
@@ -763,7 +776,8 @@ def python_literal(value: Json) -> str:
 
 def render_method(plan: MethodPlan, asynchronous: bool) -> list[str]:
     page = "AsyncPage" if asynchronous else "SyncPage"
-    returns = plan.returns.replace("{page}", page)
+    operation = "AsyncOperation" if asynchronous else "Operation"
+    returns = plan.returns.replace("{page}", page).replace("{operation}", operation)
     parameters = ["self"]
     parameters += [a.signature() for a in plan.positional]
     if plan.positional:
@@ -779,12 +793,16 @@ def render_method(plan: MethodPlan, asynchronous: bool) -> list[str]:
     lines += docstring([*plan.docs, args if described else None], 8)
     arguments = [f"ApiRequest({', '.join(plan.request)})"]
     if plan.response_type is not None:
-        arguments.append(plan.response_type)
+        arguments.append(plan.response_type.replace("{operation}", operation))
     if plan.pagination is not None:
         arguments.append(f"cursor_param={json.dumps(plan.pagination['cursorParam'])}")
         arguments.append(f"style={json.dumps(plan.pagination['style'])}")
     awaiting = "await " if asynchronous else ""
     call = f"{awaiting}self._pipeline.{plan.call}({', '.join(arguments)})"
+    if plan.call == "request_operation":
+        # Operations live outside `_core`: they subclass a generated model.
+        function = f"{'async_' if asynchronous else ''}request_operation"
+        call = f"{awaiting}{function}(self._pipeline, {', '.join(arguments)})"
     lines.append(f"        {'' if plan.returns == 'None' else 'return '}{call}")
     return lines
 
@@ -927,6 +945,13 @@ def render_resource(ir: Ir, root: ResourceNode) -> str:
         "from .._core._request import ApiRequest, RequestOptions, with_fixed",
         "from .._core._resource import AsyncAPIResource, SyncAPIResource",
         "from .._core._sentinel import NOT_GIVEN, NotGiven",
+        "from .._operations import (",
+        "    AsyncOperation,",
+        "    Operation,",
+        "    WebhookDeliveryResult,",
+        "    async_request_operation,",
+        "    request_operation,",
+        ")",
     ]
     if type_names:
         header.append(f"from ..types import {', '.join(type_names)}")

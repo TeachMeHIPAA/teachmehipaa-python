@@ -25,6 +25,19 @@ from ._core._models import BinaryResponse, LastResponse
 from ._core._pagination import AsyncPage, SyncPage
 from ._core._sentinel import NOT_GIVEN, NotGiven
 from ._extensions.events import AsyncEventTail, EventTail
+from ._operations import (
+    AsyncOperation,
+    ExportResult,
+    Operation,
+    OperationFailedError,
+    OperationTimeoutError,
+    UnknownWebhookDeliveryResult,
+    WebhookDeliveryFailed,
+    WebhookDeliveryResult,
+    WebhookDeliverySent,
+    WebhookDeliverySettled,
+    operation_id_from_name,
+)
 from ._version import __version__
 from ._webhooks import Webhook
 
@@ -35,6 +48,7 @@ __all__ = [
     "APITimeoutError",
     "AppInfo",
     "AsyncEventTail",
+    "AsyncOperation",
     "AsyncPage",
     "AsyncTeachMeHipaa",
     "AuthenticationError",
@@ -42,6 +56,7 @@ __all__ = [
     "ConflictError",
     "Environment",
     "EventTail",
+    "ExportResult",
     "FieldError",
     "FileInput",
     "IdempotencyError",
@@ -50,14 +65,23 @@ __all__ = [
     "NotFoundError",
     "NotGiven",
     "OAuthError",
+    "Operation",
+    "OperationFailedError",
+    "OperationTimeoutError",
     "PermissionDeniedError",
     "PreconditionFailedError",
     "RateLimitError",
     "SyncPage",
     "TeachMeHipaa",
     "TeachMeHipaaError",
+    "UnknownWebhookDeliveryResult",
     "Webhook",
+    "WebhookDeliveryFailed",
+    "WebhookDeliveryResult",
+    "WebhookDeliverySent",
+    "WebhookDeliverySettled",
     "WebhookSignatureError",
     "WebhookSignatureErrorCode",
     "__version__",
+    "operation_id_from_name",
 ]

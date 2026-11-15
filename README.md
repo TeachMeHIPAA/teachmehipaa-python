@@ -46,3 +46,23 @@ after a restart. With `follow=True` it polls every `interval` seconds
 (default 2) until you break or set `stop` (a `threading.Event`, or an
 `asyncio.Event` on the async client, where the tail is iterated with
 `async for` and no `await`).
+
+## Operations
+
+Exports, bulk writes, Test deliveries and redrives return an `Operation`.
+`wait()` polls until it is done (backing off from `interval`, default 1 s,
+to 10 s) and raises `OperationTimeoutError` after `timeout` (default 300 s)
+or `OperationFailedError` if it finished with an error. An Operation that is
+already done, as exports always are, returns without a request:
+
+```python
+export = client.enrollments.export(format="csv").wait()
+print(export.export_result().csv)
+
+delivery = client.webhook_subscriptions.test("whs_...").wait(timeout=60)
+print(delivery.response.tag)  # "sent", "failed" or "settled"
+```
+
+On `AsyncTeachMeHipaa`, `await operation.wait()`; cancelling the task stops
+it. `operation_id_from_name(operation.name)` gives the id that
+`operations.retrieve` takes.

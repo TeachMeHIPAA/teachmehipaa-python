@@ -9,9 +9,15 @@ from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions
 from .._core._resource import AsyncAPIResource, SyncAPIResource
 from .._core._sentinel import NOT_GIVEN, NotGiven
+from .._operations import (
+    AsyncOperation,
+    Operation,
+    WebhookDeliveryResult,
+    async_request_operation,
+    request_operation,
+)
 from ..types import (
     EventType,
-    Operation,
     WebhookSubscription,
     WebhookSubscriptionCreated,
     WebhookSubscriptionsPage,
@@ -139,7 +145,7 @@ class WebhookSubscriptions(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> Operation[WebhookDeliveryResult]:
         """Retry failed deliveries
 
         Delivers the subscription's failed events again. Requires the `webhooks:manage`
@@ -152,7 +158,8 @@ class WebhookSubscriptions(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/webhook-subscriptions/{subscriptionId}:redrive",
@@ -166,7 +173,7 @@ class WebhookSubscriptions(SyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            Operation[WebhookDeliveryResult],
         )
 
     def retrieve(
@@ -210,7 +217,7 @@ class WebhookSubscriptions(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> Operation[WebhookDeliveryResult]:
         """Send a test event
 
         Sends a signed test delivery to the subscription's endpoint, so you can check
@@ -223,7 +230,8 @@ class WebhookSubscriptions(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/webhook-subscriptions/{subscriptionId}:test",
@@ -237,7 +245,7 @@ class WebhookSubscriptions(SyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            Operation[WebhookDeliveryResult],
         )
 
     def update(
@@ -414,7 +422,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation[WebhookDeliveryResult]:
         """Retry failed deliveries
 
         Delivers the subscription's failed events again. Requires the `webhooks:manage`
@@ -427,7 +435,8 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/webhook-subscriptions/{subscriptionId}:redrive",
@@ -441,7 +450,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            AsyncOperation[WebhookDeliveryResult],
         )
 
     async def retrieve(
@@ -485,7 +494,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation[WebhookDeliveryResult]:
         """Send a test event
 
         Sends a signed test delivery to the subscription's endpoint, so you can check
@@ -498,7 +507,8 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/webhook-subscriptions/{subscriptionId}:test",
@@ -512,7 +522,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            AsyncOperation[WebhookDeliveryResult],
         )
 
     async def update(

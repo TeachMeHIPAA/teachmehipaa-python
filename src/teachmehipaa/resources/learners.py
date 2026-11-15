@@ -9,6 +9,12 @@ from .._core._pagination import AsyncPage, SyncPage
 from .._core._request import ApiRequest, RequestOptions
 from .._core._resource import AsyncAPIResource, SyncAPIResource
 from .._core._sentinel import NOT_GIVEN, NotGiven
+from .._operations import (
+    AsyncOperation,
+    Operation,
+    async_request_operation,
+    request_operation,
+)
 from ..types import (
     Learner,
     LearnerBatchUpsertRequestDelivery,
@@ -24,7 +30,6 @@ from ..types import (
     LearnerUpsertRequestDelivery,
     LearnerUpsertRequestSeatPolicy,
     LearnerWriteResult,
-    Operation,
 )
 
 
@@ -56,7 +61,8 @@ class Learners(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/learners:batchUpsert",
@@ -194,7 +200,8 @@ class Learners(SyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return self._pipeline.request(
+        return request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/learners:export",
@@ -491,7 +498,7 @@ class AsyncLearners(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation:
         """Create many learners
 
         Creates or retrieves up to 500 learners in one request. Each item works like
@@ -509,7 +516,8 @@ class AsyncLearners(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/learners:batchUpsert",
@@ -523,7 +531,7 @@ class AsyncLearners(AsyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            AsyncOperation,
         )
 
     async def create(
@@ -631,7 +639,7 @@ class AsyncLearners(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
-    ) -> Operation:
+    ) -> AsyncOperation:
         """Export learners
 
         Exports the organization's learners in one course as CSV, optionally only those
@@ -647,7 +655,8 @@ class AsyncLearners(AsyncAPIResource):
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
         """
-        return await self._pipeline.request(
+        return await async_request_operation(
+            self._pipeline,
             ApiRequest(
                 "POST",
                 "/organizations/{orgId}/learners:export",
@@ -661,7 +670,7 @@ class AsyncLearners(AsyncAPIResource):
                     idempotency_key=idempotency_key,
                 ),
             ),
-            Operation,
+            AsyncOperation,
         )
 
     async def list(
