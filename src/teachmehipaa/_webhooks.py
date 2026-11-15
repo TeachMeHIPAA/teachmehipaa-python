@@ -6,8 +6,9 @@ import hashlib
 import hmac
 import json
 import re
-from collections.abc import Mapping
+from collections.abc import Iterable
 from datetime import datetime, timedelta, timezone
+from typing import Protocol
 from urllib.parse import urlsplit
 
 from pydantic import TypeAdapter
@@ -32,16 +33,18 @@ _RAW_BODY_HINT = (
 )
 
 
-def _header(headers: Mapping[str, str], name: str) -> str | None:
-    # Framework header objects (Django, Starlette, Werkzeug) look names up
-    # case-insensitively; a plain dict needs the scan.
-    value = headers.get(name)
-    if value is not None:
-        return value
+class Headers(Protocol):
+    """Anything with header `items()`: a dict, or the `request.headers` of
+    Flask (Werkzeug, which is not a `Mapping`), Starlette or Django."""
+
+    def items(self) -> Iterable[tuple[str, str]]: ...
+
+
+def _header(headers: Headers, name: str) -> str | None:
     return next((value for key, value in headers.items() if key.lower() == name), None)
 
 
-def _required_header(headers: Mapping[str, str], name: str) -> str:
+def _required_header(headers: Headers, name: str) -> str:
     value = _header(headers, name)
     if not value:
         raise WebhookSignatureError(
@@ -130,7 +133,7 @@ class Webhook:
     @staticmethod
     def construct_event(
         payload: bytes | str,
-        headers: Mapping[str, str],
+        headers: Headers,
         secret: str,
         path: str,
         *,
@@ -141,8 +144,8 @@ class Webhook:
 
         Pass the raw body exactly as received, and the path with its query
         string (or the full URL) the request arrived on: the signature covers
-        both. `headers` may be any mapping, such as Django's, Flask's or
-        Starlette's `request.headers`. An Event type this version doesn't
+        both. `headers` may be a dict, or Flask's, Starlette's or Django's
+        `request.headers`. An Event type this version doesn't
         know comes back as an `UnknownEvent`.
 
         Raises `WebhookSignatureError` when the Delivery fails verification.

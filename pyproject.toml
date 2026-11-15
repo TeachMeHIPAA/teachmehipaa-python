@@ -16,6 +16,10 @@ dependencies = [
   "typing-extensions>=4.7",
 ]
 classifiers = [
+  # PyPI rejects every upload with a `Private ::` classifier, so nothing can
+  # be published by mistake before launch. Remove it in the release PR (see
+  # CONTRIBUTING.md).
+  "Private :: Do Not Upload",
   "Development Status :: 3 - Alpha",
   "Intended Audience :: Developers",
   "Operating System :: OS Independent",
@@ -33,6 +37,10 @@ Repository = "https://github.com/TeachMeHIPAA/teachmehipaa-python"
 
 [dependency-groups]
 dev = [
+  "django>=5.2.19",
+  "django-stubs>=6.0.9",
+  "fastapi>=0.162.5",
+  "flask>=3.1.3",
   "jsonschema>=4.26.0",
   "mypy>=1.13",
   "pytest>=8.3",
@@ -49,6 +57,14 @@ packages = ["src/teachmehipaa"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The contract suite needs Node for Prism and the sandbox suite needs
+# credentials, so a plain `pytest` leaves both out; select them with
+# `-m contract` or `-m sandbox`.
+addopts = ["-m", "not contract and not sandbox"]
+markers = [
+  "contract: runs against a Prism mock of openapi/openapi.developer.json (needs npx)",
+  "sandbox: calls the real Sandbox; skipped without TMH_SANDBOX_CLIENT_ID/SECRET",
+]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 filterwarnings = ["error"]

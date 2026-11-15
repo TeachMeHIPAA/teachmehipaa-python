@@ -3,7 +3,9 @@ and async senders differ only in how they send and wait."""
 
 from __future__ import annotations
 
+import logging
 import random
+import time
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 
@@ -16,6 +18,8 @@ from ._errors import (
     connection_error,
     parse_retry_after,
 )
+
+logger = logging.getLogger("teachmehipaa")
 
 INITIAL_RETRY_DELAY = 0.5
 MAX_RETRY_DELAY = 5.0
@@ -65,6 +69,26 @@ def is_unauthorized(error: TeachMeHipaaError) -> bool:
     return isinstance(error, AuthenticationError) and error.code == "unauthorized"
 
 
+def log_response(response: httpx.Response, started: float) -> None:
+    """One DEBUG record per response. Never the query string, headers or
+    body: they carry Learner emails and credentials (ADR-0007)."""
+    if not logger.isEnabledFor(logging.DEBUG):
+        return
+    fields = {
+        "method": response.request.method,
+        "path": response.request.url.path,
+        "status": response.status_code,
+        "latency_ms": (time.perf_counter() - started) * 1000,
+        "request_id": response.headers.get("x-request-id"),
+    }
+    logger.debug(
+        "%(method)s %(path)s %(status)d in %(latency_ms).0f ms (request id "
+        "%(request_id)s)",
+        fields,
+        extra=fields,
+    )
+
+
 def _next_delay(
     policy: RetryPolicy, retries: int, error: TeachMeHipaaError
 ) -> float | None:
@@ -95,8 +119,10 @@ class SyncSender:
         replayed = False
         while True:
             request = make_request()
+            started = time.perf_counter()
             try:
                 response = self._http_client.send(request, stream=stream)
+                log_response(response, started)
                 if response.is_error and stream:
                     try:
                         response.read()
@@ -145,8 +171,10 @@ class AsyncSender:
         replayed = False
         while True:
             request = await make_request()
+            started = time.perf_counter()
             try:
                 response = await self._http_client.send(request, stream=stream)
+                log_response(response, started)
                 if response.is_error and stream:
                     try:
                         await response.aread()
