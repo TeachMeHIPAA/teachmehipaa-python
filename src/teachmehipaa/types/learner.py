@@ -47,3 +47,17 @@ class Learner(BaseModel):
     completed_at: datetime | None
     due_at: datetime | None
     certificate: LearnerCertificate | None
+
+
+class LearnerRemindAccepted(BaseModel):
+    """A reminder to a Learner was queued."""
+
+    learner_id: str
+    action: Literal["remind"] | str
+
+
+class LearnerLaunchLink(BaseModel):
+    """A single-use Launch link; redirect the Learner to `url` right away."""
+
+    url: str
+    expires_at: datetime

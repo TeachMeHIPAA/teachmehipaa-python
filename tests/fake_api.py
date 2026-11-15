@@ -70,13 +70,47 @@ class Reply:
     json: Any = None
     headers: dict[str, str] = field(default_factory=dict)
     content_type: str = "application/json"
+    # Sent verbatim instead of `json`, for non-JSON bodies.
+    text: str | None = None
 
     def to_response(self) -> httpx.Response:
+        content = json.dumps(self.json) if self.text is None else self.text
         return httpx.Response(
             self.status,
-            content=json.dumps(self.json).encode(),
+            content=content.encode(),
             headers={"content-type": self.content_type, **self.headers},
         )
+
+
+def problem(
+    status: int,
+    code: str,
+    *,
+    title: str = "Problem",
+    detail: str | None = None,
+    errors: list[dict[str, str]] | None = None,
+    headers: dict[str, str] | None = None,
+) -> Reply:
+    """An RFC 9457 problem reply shaped like the API's `problem()` helper."""
+    body: dict[str, Any] = {"title": title, "status": status, "code": code}
+    if detail is not None:
+        body["detail"] = detail
+    if errors is not None:
+        body["errors"] = errors
+    return Reply(
+        status=status,
+        json=body,
+        content_type="application/problem+json",
+        headers={"x-request-id": REQUEST_ID, **(headers or {})},
+    )
+
+
+def network_error(request: httpx.Request) -> Reply:
+    raise httpx.ConnectError("connection refused", request=request)
+
+
+def read_timeout(request: httpx.Request) -> Reply:
+    raise httpx.ReadTimeout("timed out", request=request)
 
 
 Responder = Callable[[httpx.Request], Reply]
@@ -143,3 +177,28 @@ class FakeClock:
 
     def advance(self, seconds: float) -> None:
         self.now += seconds
+
+
+class FakeSleep:
+    """Records each wait instead of waiting, and moves the clock on."""
+
+    def __init__(self, clock: FakeClock | None = None) -> None:
+        self.waits: list[float] = []
+        self._clock = clock
+
+    def __call__(self, seconds: float) -> None:
+        self.waits.append(seconds)
+        if self._clock is not None:
+            self._clock.advance(seconds)
+
+
+class FakeAsyncSleep:
+    def __init__(self, clock: FakeClock | None = None) -> None:
+        self._sleep = FakeSleep(clock)
+
+    @property
+    def waits(self) -> list[float]:
+        return self._sleep.waits
+
+    async def __call__(self, seconds: float) -> None:
+        self._sleep(seconds)

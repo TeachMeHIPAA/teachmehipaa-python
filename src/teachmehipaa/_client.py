@@ -21,6 +21,7 @@ from ._core._config import (
     make_config,
 )
 from ._core._pipeline import AsyncPipeline, SyncPipeline
+from ._core._retry import AsyncSender, SyncSender
 from .resources._root import AsyncResources, SyncResources
 
 
@@ -81,14 +82,12 @@ class TeachMeHipaa(_ConfigView, SyncResources):
             app_info=app_info,
             clock=clock,
         )
-        self._sleep = sleep or time.sleep
         self._http_client = http_client or httpx.Client(timeout=self._config.timeout)
+        sender = SyncSender(self._http_client, sleep or time.sleep)
         tokens = ClientCredentialsTokenProvider(
-            ClientCredentials(client_id, client_secret),
-            self._config,
-            self._http_client.send,
+            ClientCredentials(client_id, client_secret), self._config, sender
         )
-        super().__init__(SyncPipeline(self._config, self._http_client, tokens))
+        super().__init__(SyncPipeline(self._config, sender, tokens))
 
     def close(self) -> None:
         """Close the underlying httpx client, including one passed in."""
@@ -135,16 +134,14 @@ class AsyncTeachMeHipaa(_ConfigView, AsyncResources):
             app_info=app_info,
             clock=clock,
         )
-        self._sleep = sleep or asyncio.sleep
         self._http_client = http_client or httpx.AsyncClient(
             timeout=self._config.timeout
         )
+        sender = AsyncSender(self._http_client, sleep or asyncio.sleep)
         tokens = AsyncClientCredentialsTokenProvider(
-            ClientCredentials(client_id, client_secret),
-            self._config,
-            self._http_client.send,
+            ClientCredentials(client_id, client_secret), self._config, sender
         )
-        super().__init__(AsyncPipeline(self._config, self._http_client, tokens))
+        super().__init__(AsyncPipeline(self._config, sender, tokens))
 
     async def close(self) -> None:
         """Close the underlying httpx client, including one passed in."""

@@ -6,7 +6,6 @@ from __future__ import annotations
 import asyncio
 import threading
 from base64 import b64encode
-from collections.abc import Awaitable, Callable
 from dataclasses import dataclass, field
 from typing import Protocol
 from urllib.parse import quote_plus, urlencode
@@ -14,7 +13,8 @@ from urllib.parse import quote_plus, urlencode
 import httpx
 
 from ._config import ClientConfig
-from ._errors import error_from_response
+from ._errors import is_json, oauth_error_from_response, unexpected_response_error
+from ._retry import AsyncSender, RetryPolicy, SyncSender
 
 # Re-mint this long before expiry so a token never lapses mid-request.
 REFRESH_MARGIN_SECONDS = 60.0
@@ -32,9 +32,17 @@ class AccessToken:
 class TokenProvider(Protocol):
     def access_token(self) -> str: ...
 
+    def invalidate(self, access_token: str) -> None:
+        """Drop `access_token`, which the API refused, so the next
+        `access_token()` mints afresh. A token minted since is kept."""
+
 
 class AsyncTokenProvider(Protocol):
     async def access_token(self) -> str: ...
+
+    def invalidate(self, access_token: str) -> None:
+        """Drop `access_token`, which the API refused, so the next
+        `access_token()` mints afresh. A token minted since is kept."""
 
 
 @dataclass(frozen=True)
@@ -63,13 +71,20 @@ class ClientCredentials:
 
 
 def read_access_token(response: httpx.Response, *, minted_at: float) -> AccessToken:
-    if response.is_error:
-        raise error_from_response(response)
+    if not is_json(response):
+        raise unexpected_response_error(response)
     body = response.json()
     return AccessToken(
         value=body["access_token"],
         expires_at=minted_at + float(body["expires_in"]),
     )
+
+
+def mint_retry_policy(config: ClientConfig) -> RetryPolicy:
+    # A client-credentials grant mints a fresh token each time, so replaying
+    # it is harmless. Refresh-token and authorization-code exchanges must
+    # never use this: replaying one revokes the Grant (ADR-0004).
+    return RetryPolicy(retry_safe=True, max_retries=config.max_retries)
 
 
 class ClientCredentialsTokenProvider:
@@ -80,11 +95,11 @@ class ClientCredentialsTokenProvider:
         self,
         credentials: ClientCredentials,
         config: ClientConfig,
-        send: Callable[[httpx.Request], httpx.Response],
+        sender: SyncSender,
     ) -> None:
         self._credentials = credentials
         self._config = config
-        self._send = send
+        self._sender = sender
         self._token: AccessToken | None = None
         self._lock = threading.Lock()
 
@@ -92,9 +107,18 @@ class ClientCredentialsTokenProvider:
         with self._lock:
             if self._token is None or self._token.needs_refresh(self._config.clock()):
                 minted_at = self._config.clock()
-                response = self._send(self._credentials.token_request(self._config))
+                response = self._sender.send(
+                    lambda: self._credentials.token_request(self._config),
+                    oauth_error_from_response,
+                    mint_retry_policy(self._config),
+                )
                 self._token = read_access_token(response, minted_at=minted_at)
             return self._token.value
+
+    def invalidate(self, access_token: str) -> None:
+        with self._lock:
+            if self._token is not None and self._token.value == access_token:
+                self._token = None
 
 
 class AsyncClientCredentialsTokenProvider:
@@ -104,11 +128,11 @@ class AsyncClientCredentialsTokenProvider:
         self,
         credentials: ClientCredentials,
         config: ClientConfig,
-        send: Callable[[httpx.Request], Awaitable[httpx.Response]],
+        sender: AsyncSender,
     ) -> None:
         self._credentials = credentials
         self._config = config
-        self._send = send
+        self._sender = sender
         self._token: AccessToken | None = None
         self._lock = asyncio.Lock()
 
@@ -116,7 +140,18 @@ class AsyncClientCredentialsTokenProvider:
         async with self._lock:
             if self._token is None or self._token.needs_refresh(self._config.clock()):
                 minted_at = self._config.clock()
-                request = self._credentials.token_request(self._config)
-                response = await self._send(request)
+                response = await self._sender.send(
+                    self._token_request,
+                    oauth_error_from_response,
+                    mint_retry_policy(self._config),
+                )
                 self._token = read_access_token(response, minted_at=minted_at)
             return self._token.value
+
+    def invalidate(self, access_token: str) -> None:
+        # No await between the check and the clear, so no lock is needed.
+        if self._token is not None and self._token.value == access_token:
+            self._token = None
+
+    async def _token_request(self) -> httpx.Request:
+        return self._credentials.token_request(self._config)

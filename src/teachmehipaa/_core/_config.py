@@ -21,7 +21,8 @@ ENVIRONMENT_BASE_URLS: Mapping[Environment, str] = MappingProxyType(
 )
 
 DEFAULT_MAX_RETRIES = 2
-DEFAULT_TIMEOUT = 60.0
+# The same in every TeachMeHIPAA SDK, and Stripe's default.
+DEFAULT_TIMEOUT = 80.0
 
 
 class _AppInfoOptional(TypedDict, total=False):
