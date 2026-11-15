@@ -332,6 +332,7 @@ class Enrollments(SyncAPIResource):
             ),
             EnrollmentsListPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     def preview_import(
@@ -821,6 +822,7 @@ class AsyncEnrollments(AsyncAPIResource):
             ),
             EnrollmentsListPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     async def preview_import(

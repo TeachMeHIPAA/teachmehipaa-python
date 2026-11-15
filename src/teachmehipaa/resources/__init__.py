@@ -1,6 +1,7 @@
 # Generated from openapi/sdk-ir.json — do not edit.
 # Regenerate with `uv run python scripts/generate.py`.
 
+from .._extensions.events import AsyncEvents, Events
 from .audit_events import AsyncAuditEvents, AuditEvents
 from .auth import AsyncAuth, Auth
 from .certificate_verifications import (
@@ -11,7 +12,6 @@ from .certificates import AsyncCertificates, Certificates
 from .compliance import AsyncCompliance, Compliance
 from .courses import AsyncCourses, Courses
 from .enrollments import AsyncEnrollments, Enrollments
-from .events import AsyncEvents, Events
 from .learners import AsyncLearners, Learners
 from .members import AsyncMembers, Members
 from .operations import AsyncOperations, Operations

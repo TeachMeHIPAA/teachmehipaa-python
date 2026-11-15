@@ -41,6 +41,7 @@ class Courses(SyncAPIResource):
             ),
             CoursesPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     def retrieve(
@@ -105,6 +106,7 @@ class AsyncCourses(AsyncAPIResource):
             ),
             CoursesPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     async def retrieve(

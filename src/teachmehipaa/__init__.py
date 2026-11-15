@@ -22,6 +22,7 @@ from ._core._files import FileInput
 from ._core._models import BinaryResponse, LastResponse
 from ._core._pagination import AsyncPage, SyncPage
 from ._core._sentinel import NOT_GIVEN, NotGiven
+from ._extensions.events import AsyncEventTail, EventTail
 from ._version import __version__
 
 __all__ = [
@@ -30,12 +31,14 @@ __all__ = [
     "APIError",
     "APITimeoutError",
     "AppInfo",
+    "AsyncEventTail",
     "AsyncPage",
     "AsyncTeachMeHipaa",
     "AuthenticationError",
     "BinaryResponse",
     "ConflictError",
     "Environment",
+    "EventTail",
     "FieldError",
     "FileInput",
     "IdempotencyError",

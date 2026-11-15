@@ -66,6 +66,7 @@ class AuditEvents(SyncAPIResource):
             ),
             AuditEventsPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
 
@@ -118,4 +119,5 @@ class AsyncAuditEvents(AsyncAPIResource):
             ),
             AuditEventsPage,
             cursor_param="cursor",
+            style="cursor",
         )

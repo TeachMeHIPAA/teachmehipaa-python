@@ -11,7 +11,11 @@ from .._core._sentinel import NOT_GIVEN, NotGiven
 from ..types import Event, EventType, OrgEventsPage
 
 
-class Events(SyncAPIResource):
+class EventsBase(SyncAPIResource):
+    """The generated methods of `events`. The client exposes the hand-written subclass
+    `Events` in `_extensions/events.py`.
+    """
+
     def list(
         self,
         *,
@@ -46,10 +50,15 @@ class Events(SyncAPIResource):
             ),
             OrgEventsPage,
             cursor_param="after",
+            style="after",
         )
 
 
-class AsyncEvents(AsyncAPIResource):
+class AsyncEventsBase(AsyncAPIResource):
+    """The generated methods of `events`. The client exposes the hand-written subclass
+    `AsyncEvents` in `_extensions/events.py`.
+    """
+
     async def list(
         self,
         *,
@@ -84,4 +93,5 @@ class AsyncEvents(AsyncAPIResource):
             ),
             OrgEventsPage,
             cursor_param="after",
+            style="after",
         )

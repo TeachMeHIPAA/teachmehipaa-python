@@ -256,6 +256,7 @@ class Learners(SyncAPIResource):
             ),
             LearnersPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     def offboard(
@@ -708,6 +709,7 @@ class AsyncLearners(AsyncAPIResource):
             ),
             LearnersPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     async def offboard(

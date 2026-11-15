@@ -57,6 +57,7 @@ class Members(SyncAPIResource):
             ),
             MembersPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     def retrieve(
@@ -135,6 +136,7 @@ class AsyncMembers(AsyncAPIResource):
             ),
             MembersPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     async def retrieve(

@@ -108,6 +108,7 @@ class PartnersOrganizations(SyncAPIResource):
             ),
             PartnerOrganizationsPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
 
@@ -200,6 +201,7 @@ class AsyncPartnersOrganizations(AsyncAPIResource):
             ),
             PartnerOrganizationsPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
 

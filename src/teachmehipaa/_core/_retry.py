@@ -76,7 +76,7 @@ class SyncSender:
         self, http_client: httpx.Client, sleep: Callable[[float], None]
     ) -> None:
         self._http_client = http_client
-        self._sleep = sleep
+        self.sleep = sleep
 
     def send(
         self,
@@ -106,7 +106,7 @@ class SyncSender:
             delay = _next_delay(policy, retries, error)
             if delay is None:
                 raise error
-            self._sleep(delay)
+            self.sleep(delay)
             retries += 1
 
 
@@ -117,7 +117,7 @@ class AsyncSender:
         sleep: Callable[[float], Awaitable[None]],
     ) -> None:
         self._http_client = http_client
-        self._sleep = sleep
+        self.sleep = sleep
 
     async def send(
         self,
@@ -147,5 +147,5 @@ class AsyncSender:
             delay = _next_delay(policy, retries, error)
             if delay is None:
                 raise error
-            await self._sleep(delay)
+            await self.sleep(delay)
             retries += 1

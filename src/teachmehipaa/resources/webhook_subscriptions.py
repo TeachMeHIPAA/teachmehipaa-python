@@ -128,6 +128,7 @@ class WebhookSubscriptions(SyncAPIResource):
             ),
             WebhookSubscriptionsPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     def redrive(
@@ -402,6 +403,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
             ),
             WebhookSubscriptionsPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     async def redrive(

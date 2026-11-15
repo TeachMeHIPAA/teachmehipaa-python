@@ -35,6 +35,13 @@ IR_PATH = ROOT / "openapi" / "sdk-ir.json"
 SCHEMA_PATH = ROOT / "openapi" / "sdk-ir.schema.json"
 PACKAGE = ROOT / "src" / "teachmehipaa"
 GENERATED_DIRS = ("types", "resources")
+EXTENSIONS = PACKAGE / "_extensions"
+
+# Top-level resources with hand-written methods, by IR path. The generator
+# names their classes `<Name>Base` and `Async<Name>Base`;
+# `_extensions/<module>.py` subclasses them under the plain names, and the
+# client exposes those subclasses.
+EXTENDED_RESOURCES = frozenset({"events"})
 
 BANNER = (
     "# Generated from openapi/sdk-ir.json — do not edit.\n"
@@ -571,7 +578,7 @@ class MethodPlan:
     call: str
     request: list[str]
     response_type: str | None
-    page_cursor: str | None
+    pagination: Json | None
     docs: list[str | None]
 
 
@@ -715,9 +722,11 @@ def plan_method(ir: Ir, method: Json) -> MethodPlan:
         raise GeneratorError(f"{operation}: argument names collide")
 
     returns, call, response_type = response_plan(ir, method)
-    page_cursor = None
+    pagination = None
     if call == "request_page":
-        page_cursor = method["pagination"]["cursorParam"]
+        pagination = method["pagination"]
+        if pagination["style"] not in ("cursor", "after"):
+            raise GeneratorError(f"{operation}: no rule for {pagination['style']}")
     return MethodPlan(
         name=identifier(method["name"]),
         positional=positional,
@@ -726,7 +735,7 @@ def plan_method(ir: Ir, method: Json) -> MethodPlan:
         call=call,
         request=request,
         response_type=response_type,
-        page_cursor=page_cursor,
+        pagination=pagination,
         docs=[method["summary"], method["description"], RETURN_DOCS.get(call)],
     )
 
@@ -771,8 +780,9 @@ def render_method(plan: MethodPlan, asynchronous: bool) -> list[str]:
     arguments = [f"ApiRequest({', '.join(plan.request)})"]
     if plan.response_type is not None:
         arguments.append(plan.response_type)
-    if plan.page_cursor is not None:
-        arguments.append(f"cursor_param={json.dumps(plan.page_cursor)}")
+    if plan.pagination is not None:
+        arguments.append(f"cursor_param={json.dumps(plan.pagination['cursorParam'])}")
+        arguments.append(f"style={json.dumps(plan.pagination['style'])}")
     awaiting = "await " if asynchronous else ""
     call = f"{awaiting}self._pipeline.{plan.call}({', '.join(arguments)})"
     lines.append(f"        {'' if plan.returns == 'None' else 'return '}{call}")
@@ -796,6 +806,34 @@ class ResourceNode:
         yield self
 
 
+def is_extended(node: ResourceNode) -> bool:
+    return ".".join(node.path) in EXTENDED_RESOURCES
+
+
+def exposing_module(node: ResourceNode) -> str:
+    """The module, relative to `resources/`, of the classes the client
+    exposes for a top-level resource."""
+    module_name = identifier(node.path[0])
+    return f".._extensions.{module_name}" if is_extended(node) else f".{module_name}"
+
+
+def check_extensions(roots: Mapping[str, ResourceNode]) -> None:
+    nodes = {
+        ".".join(node.path): node for root in roots.values() for node in root.walk()
+    }
+    for path in sorted(EXTENDED_RESOURCES):
+        node = nodes.get(path)
+        if node is None:
+            raise GeneratorError(f"extended resource {path} is not in the IR")
+        # A nested extension would import its parent's module, which would
+        # import it back.
+        if len(node.path) != 1:
+            raise GeneratorError(f"extended resource {path} is not top-level")
+        extension = EXTENSIONS / f"{identifier(node.path[0])}.py"
+        if not extension.is_file():
+            raise GeneratorError(f"extended resource {path} needs {extension}")
+
+
 def resource_tree(ir: Ir) -> dict[str, ResourceNode]:
     roots: dict[str, ResourceNode] = {}
     for path, method in ir.methods:
@@ -814,7 +852,19 @@ def render_resource_class(
     variant = "Async" if asynchronous else ""
     base = "AsyncAPIResource" if asynchronous else "SyncAPIResource"
     pipeline = "AsyncPipeline" if asynchronous else "SyncPipeline"
-    lines = [f"class {variant}{node.class_name}({base}):"]
+    suffix = "Base" if is_extended(node) else ""
+    lines = [f"class {variant}{node.class_name}{suffix}({base}):"]
+    if suffix:
+        subclass = f"{variant}{node.class_name}"
+        module_name = identifier(node.path[0])
+        lines += docstring(
+            [
+                f"The generated methods of `{'.'.join(node.path)}`. The client "
+                f"exposes the hand-written subclass `{subclass}` in "
+                f"`_extensions/{module_name}.py`."
+            ],
+            4,
+        )
     used: set[str] = set()
     if node.children:
         for name, child in sorted(node.children.items()):
@@ -856,9 +906,10 @@ def render_resource(ir: Ir, root: ResourceNode) -> str:
         if name in ir.types or (name.endswith("Param") and name[:-5] in ir.types)
     )
     class_names = {
-        f"{variant}{node.class_name}"
+        f"{variant}{node.class_name}{suffix}"
         for node in root.walk()
         for variant in ("", "Async")
+        for suffix in ("", "Base")
     }
     if class_names & set(type_names):
         raise GeneratorError(f"resource classes collide with types in {root.path}")
@@ -890,9 +941,10 @@ def render_resource(ir: Ir, root: ResourceNode) -> str:
 
 def render_root(roots: Mapping[str, ResourceNode]) -> str:
     header = ["from .._core._pipeline import AsyncPipeline, SyncPipeline"]
-    for name, node in sorted(roots.items()):
+    for node in roots.values():
         header.append(
-            f"from .{identifier(name)} import Async{node.class_name}, {node.class_name}"
+            f"from {exposing_module(node)} import "
+            f"Async{node.class_name}, {node.class_name}"
         )
     body: list[str] = []
     for variant, pipeline in (("Sync", "SyncPipeline"), ("Async", "AsyncPipeline")):
@@ -911,10 +963,12 @@ def render_root(roots: Mapping[str, ResourceNode]) -> str:
 
 
 def render_reexports(modules: Mapping[str, list[str]]) -> str:
+    """Re-exports names from modules given relative to the package, such as
+    `._models`."""
     header = []
     names: list[str] = []
     for module_name, exported in sorted(modules.items()):
-        header.append(f"from .{module_name} import {', '.join(sorted(exported))}")
+        header.append(f"from {module_name} import {', '.join(sorted(exported))}")
         names += exported
     body = ["", "__all__ = [", *[f"    {json.dumps(n)}," for n in sorted(names)], "]"]
     return module(header, body)
@@ -935,17 +989,18 @@ def generate(ir: Ir) -> dict[str, str]:
         "types/_models.py": models,
         "types/_params.py": params,
         "types/__init__.py": render_reexports(
-            {"_models": model_names, "_params": param_names}
+            {"._models": model_names, "._params": param_names}
         ),
     }
     roots = resource_tree(ir)
+    check_extensions(roots)
     for name, root in roots.items():
         files[f"resources/{identifier(name)}.py"] = render_resource(ir, root)
     files["resources/_root.py"] = render_root(roots)
     files["resources/__init__.py"] = render_reexports(
         {
-            identifier(name): [node.class_name, f"Async{node.class_name}"]
-            for name, node in roots.items()
+            exposing_module(node): [node.class_name, f"Async{node.class_name}"]
+            for node in roots.values()
         }
     )
     return files

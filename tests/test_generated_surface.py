@@ -11,6 +11,7 @@ from typing import Any
 import pytest
 
 from teachmehipaa import AsyncTeachMeHipaa, TeachMeHipaa
+from teachmehipaa._core._resource import AsyncAPIResource, SyncAPIResource
 from tests.fake_api import CLIENT_ID, CLIENT_SECRET
 
 OPENAPI = Path(__file__).parent.parent / "openapi"
@@ -80,6 +81,10 @@ EXPECTED_METHODS: dict[str, list[str]] = {
 # The token endpoint is the hand-written auth layer, not a resource method.
 HAND_WRITTEN = {"createAccessToken"}
 
+# Public methods with no operation of their own, from `_extensions/`:
+# `events.tail` iterates `listOrgEvents` (grilling Q22).
+HAND_WRITTEN_METHODS = ["events.tail"]
+
 EXPECTED_NAMES = sorted(name for names in EXPECTED_METHODS.values() for name in names)
 
 
@@ -95,11 +100,25 @@ def ir_method_names() -> Iterator[tuple[str, str, str]]:
 
 
 def resource_methods(resource: object, prefix: str) -> Iterator[str]:
-    """Every public method of a resource and its sub-resources, dotted."""
-    for name, value in vars(type(resource)).items():
-        if not name.startswith("_") and inspect.isfunction(value):
-            yield prefix + name
+    """Every public method of a resource and its sub-resources, dotted,
+    including those a hand-written subclass adds to a generated class."""
+    classes = type(resource).__mro__
+    resource_classes = classes[: classes.index(_resource_base(resource))]
+    names = {
+        name
+        for cls in resource_classes
+        for name, value in vars(cls).items()
+        if not name.startswith("_") and inspect.isfunction(value)
+    }
+    for name in sorted(names):
+        yield prefix + name
     yield from sub_resource_methods(resource, prefix)
+
+
+def _resource_base(resource: object) -> type:
+    return (
+        AsyncAPIResource if isinstance(resource, AsyncAPIResource) else SyncAPIResource
+    )
 
 
 def sub_resource_methods(namespace: object, prefix: str = "") -> Iterator[str]:
@@ -157,8 +176,12 @@ def test_every_ir_method_has_its_expected_name() -> None:
 
 
 @pytest.mark.parametrize("client", list(make_clients()), ids=["sync", "async"])
-def test_the_client_exposes_exactly_the_expected_methods(client: object) -> None:
-    assert sorted(sub_resource_methods(client)) == EXPECTED_NAMES
+def test_the_client_exposes_exactly_the_expected_methods_plus_hand_written_ones(
+    client: object,
+) -> None:
+    assert sorted(sub_resource_methods(client)) == sorted(
+        EXPECTED_NAMES + HAND_WRITTEN_METHODS
+    )
 
 
 def test_async_methods_are_coroutines_and_sync_methods_are_not() -> None:
@@ -172,7 +195,7 @@ def test_async_methods_are_coroutines_and_sync_methods_are_not() -> None:
 def test_sync_and_async_methods_take_the_same_parameters() -> None:
     sync, async_ = make_clients()
 
-    for name in EXPECTED_NAMES:
+    for name in EXPECTED_NAMES + HAND_WRITTEN_METHODS:
         sync_signature = inspect.signature(resolve(sync, name))
         async_signature = inspect.signature(resolve(async_, name))
         assert list(sync_signature.parameters) == list(async_signature.parameters)

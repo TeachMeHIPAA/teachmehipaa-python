@@ -98,6 +98,7 @@ class SeatOrders(SyncAPIResource):
             ),
             SeatOrdersPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     def quote(
@@ -248,6 +249,7 @@ class AsyncSeatOrders(AsyncAPIResource):
             ),
             SeatOrdersPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     async def quote(

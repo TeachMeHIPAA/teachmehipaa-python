@@ -16,7 +16,7 @@ from ._config import ClientConfig
 from ._errors import error_from_response
 from ._files import read_uploads
 from ._models import BinaryResponse
-from ._pagination import AsyncPage, ItemT, PageBody, SyncPage
+from ._pagination import AsyncPage, ItemT, PageBody, PaginationStyle, SyncPage
 from ._request import (
     INTROSPECTION,
     ApiRequest,
@@ -60,6 +60,8 @@ class SyncPipeline:
     ) -> None:
         self.config = config
         self._sender = sender
+        # The client's injected sleep, for helpers that poll.
+        self.sleep = sender.sleep
         self._tokens = token_provider
         self._organization_id = config.organization_id
         self._organization_lock = threading.Lock()
@@ -81,10 +83,15 @@ class SyncPipeline:
         page_model: type[PageBody[ItemT]],
         *,
         cursor_param: str,
+        style: PaginationStyle,
     ) -> SyncPage[ItemT]:
         body = read_model(self.send(api_request), page_model)
         return SyncPage(
-            body, pipeline=self, request=api_request, cursor_param=cursor_param
+            body,
+            pipeline=self,
+            request=api_request,
+            cursor_param=cursor_param,
+            style=style,
         )
 
     def request_empty(self, api_request: ApiRequest) -> None:
@@ -134,6 +141,8 @@ class AsyncPipeline:
     ) -> None:
         self.config = config
         self._sender = sender
+        # The client's injected sleep, for helpers that poll.
+        self.sleep = sender.sleep
         self._tokens = token_provider
         self._organization_id = config.organization_id
         self._organization_lock = asyncio.Lock()
@@ -157,10 +166,15 @@ class AsyncPipeline:
         page_model: type[PageBody[ItemT]],
         *,
         cursor_param: str,
+        style: PaginationStyle,
     ) -> AsyncPage[ItemT]:
         body = read_model(await self.send(api_request), page_model)
         return AsyncPage(
-            body, pipeline=self, request=api_request, cursor_param=cursor_param
+            body,
+            pipeline=self,
+            request=api_request,
+            cursor_param=cursor_param,
+            style=style,
         )
 
     async def request_empty(self, api_request: ApiRequest) -> None:

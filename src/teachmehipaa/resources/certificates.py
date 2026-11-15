@@ -119,6 +119,7 @@ class Certificates(SyncAPIResource):
             ),
             CertificatesPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     def retrieve(
@@ -280,6 +281,7 @@ class AsyncCertificates(AsyncAPIResource):
             ),
             CertificatesPage,
             cursor_param="cursor",
+            style="cursor",
         )
 
     async def retrieve(
