@@ -5,7 +5,7 @@ sent checked.
 Each ```python block must follow a `<!-- sample: <id> -->` line. A sample
 that uses `client` without creating one gets the Quickstart's client
 prepended, bound to an Organization so no lookup is scripted. Samples name
-the caller's own storage (`sessions`, `grants`, `cursors`, `shutdown`);
+the caller's own storage (`cursors`, `shutdown`);
 `PLACEHOLDERS` types them and `Storage` stands in for them at run time.
 """
 
@@ -18,10 +18,8 @@ import re
 import threading
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from functools import partial
 from pathlib import Path
 from typing import Any, NamedTuple
-from urllib.parse import parse_qs, urlsplit
 
 import httpx
 import mypy.api
@@ -35,26 +33,19 @@ from flask import Flask
 import teachmehipaa
 from teachmehipaa import (
     AsyncTeachMeHipaa,
-    PartnerGrantTokenProvider,
     TeachMeHipaa,
     Webhook,
-    oauth,
 )
 from tests.fake_api import (
-    APP_ID,
-    APP_SECRET,
     CLIENT_ID,
     CLIENT_SECRET,
     LEARNER_JSON,
     ORG_ID,
-    REFRESH_TOKEN_1,
-    REFRESH_TOKEN_2,
     REQUEST_ID,
     FakeApi,
     FakeAsyncSleep,
     FakeSleep,
     Reply,
-    grant_token_reply,
     introspection_json,
     problem,
     token_json,
@@ -66,7 +57,6 @@ WEBHOOK_SECRET = "readme-test-signing-secret"
 ORG = f"/organizations/{ORG_ID}"
 LEARNER_ID = "sub_01JD80AB2C3D4E5F6G7H8J9K0M"
 LEARNER = {**LEARNER_JSON, "learnerId": LEARNER_ID}
-PARTNER_ID = "ptn_01JD8E2C3D4E5F6G7H8J9K0M1N"
 
 
 class Sample(NamedTuple):
@@ -100,26 +90,11 @@ client = _TeachMeHipaa(
 
 PLACEHOLDERS = """\
 import threading
-from typing import NamedTuple
-
-class Consent(NamedTuple):
-    state: str
-    code_verifier: str
-
-class Sessions:
-    def save(self, *, state: str, code_verifier: str) -> None: ...
-    def load(self) -> Consent: ...
-
-class Grants:
-    def load(self, org_id: str) -> str: ...
-    def save(self, org_id: str, refresh_token: str) -> None: ...
 
 class Cursors:
     def load(self) -> str | None: ...
     def save(self, event_id: str | None) -> None: ...
 
-sessions: Sessions
-grants: Grants
 cursors: Cursors
 shutdown: threading.Event
 """
@@ -131,37 +106,16 @@ def _source(sample: Sample) -> str:
     return (PRELUDE if uses_client and not creates_client else "") + sample.code
 
 
-class Consent(NamedTuple):
-    state: str
-    code_verifier: str
-
-
 @dataclass
 class Storage:
     """Run-time stand-ins for the storage the samples name."""
 
-    consent: Consent | None = None
-    refresh_tokens: dict[str, str] = field(default_factory=dict)
     cursor: str | None = None
     saved_cursors: list[str | None] = field(default_factory=list)
     shutdown: threading.Event = field(default_factory=threading.Event)
 
-    def save(self, *, state: str, code_verifier: str) -> None:
-        self.consent = Consent(state, code_verifier)
-
-    def load(self) -> Consent:
-        assert self.consent is not None
-        return self.consent
-
     def namespace(self) -> dict[str, object]:
         storage = self
-
-        class Grants:
-            def load(self, org_id: str) -> str:
-                return storage.refresh_tokens[org_id]
-
-            def save(self, org_id: str, refresh_token: str) -> None:
-                storage.refresh_tokens[org_id] = refresh_token
 
         class Cursors:
             def load(self) -> str | None:
@@ -171,8 +125,6 @@ class Storage:
                 storage.saved_cursors.append(event_id)
 
         return {
-            "sessions": self,
-            "grants": Grants(),
             "cursors": Cursors(),
             "shutdown": self.shutdown,
         }
@@ -226,25 +178,11 @@ def harness(
                 **{**options, "http_client": api.async_client(), "sleep": async_sleep}
             )
 
-    class FakedPartnerGrantTokenProvider(PartnerGrantTokenProvider):
-        def __init__(self, **options: Any) -> None:
-            super().__init__(**{**options, "http_client": api.sync_client()})
-
     monkeypatch.setattr(teachmehipaa, "TeachMeHipaa", FakedTeachMeHipaa)
     monkeypatch.setattr(teachmehipaa, "AsyncTeachMeHipaa", FakedAsyncTeachMeHipaa)
-    monkeypatch.setattr(
-        teachmehipaa, "PartnerGrantTokenProvider", FakedPartnerGrantTokenProvider
-    )
-    monkeypatch.setattr(
-        oauth,
-        "exchange_code",
-        partial(oauth.exchange_code, http_client=api.sync_client()),
-    )
     for name, value in {
         "TMH_CLIENT_ID": CLIENT_ID,
         "TMH_CLIENT_SECRET": CLIENT_SECRET,
-        "TMH_APP_ID": APP_ID,
-        "TMH_APP_SECRET": APP_SECRET,
         "TMH_WEBHOOK_SECRET": WEBHOOK_SECRET,
     }.items():
         monkeypatch.setenv(name, value)
@@ -346,9 +284,7 @@ def test_every_sample_type_checks_against_the_package(tmp_path: Path) -> None:
     files = []
     for sample in SAMPLES.values():
         path = tmp_path / f"readme_{sample.id.replace('-', '_')}.py"
-        imports = (
-            "from readme_placeholders import cursors, grants, sessions, shutdown\n"
-        )
+        imports = "from readme_placeholders import cursors, shutdown\n"
         path.write_text(imports + _source(sample))
         files.append(str(path))
 
@@ -673,69 +609,6 @@ def _webhook_test_headers(h: Harness) -> None:
     h.run("webhook-test-headers")
 
     assert h.printed() == ["learner.certified"]
-
-
-@runs("partner-consent")
-def _partner_consent(h: Harness) -> None:
-    h.api.replace(
-        "POST", "/auth/token", grant_token_reply("access-token-grant", REFRESH_TOKEN_1)
-    )
-    sample = h.run("partner-consent")
-
-    consent_url = urlsplit(sample["start_consent"]())
-    query = parse_qs(consent_url.query)
-    with pytest.raises(PermissionError):
-        sample["finish_consent"]("code_123", "forged-state")
-    sample["finish_consent"]("code_123", query["state"][0])
-
-    assert consent_url.netloc == "console.teachmehipaa.com"
-    assert query["code_challenge_method"] == ["S256"]
-    [exchange] = h.api.requests_to("POST", "/auth/token")
-    form = parse_qs(exchange.content.decode())
-    assert form["code"] == ["code_123"]
-    assert form["code_verifier"] == [h.storage.load().code_verifier]
-    assert h.storage.refresh_tokens == {"org_acme": REFRESH_TOKEN_1}
-
-
-@runs("partner-grant")
-def _partner_grant(h: Harness) -> None:
-    h.storage.refresh_tokens["org_acme"] = REFRESH_TOKEN_1
-    h.api.replace(
-        "POST", "/auth/token", grant_token_reply("access-token-grant", REFRESH_TOKEN_2)
-    )
-    h.api.on("GET", f"{ORG}/learners", page([LEARNER]))
-
-    h.run("partner-grant")
-
-    [exchange] = h.api.requests_to("POST", "/auth/token")
-    assert parse_qs(exchange.content.decode())["refresh_token"] == [REFRESH_TOKEN_1]
-    assert h.storage.refresh_tokens == {"org_acme": REFRESH_TOKEN_2}
-    [listing] = h.api.requests_to("GET", f"{ORG}/learners")
-    assert listing.headers["authorization"] == "Bearer access-token-grant"
-    assert h.printed() == ["1"]
-
-
-@runs("partner-organizations")
-def _partner_organizations(h: Harness) -> None:
-    h.api.on(
-        "GET",
-        f"/partners/{PARTNER_ID}/organizations",
-        page(
-            [
-                {
-                    "orgId": "org_clinic",
-                    "name": "Clinic",
-                    "createdAt": "2026-11-01T09:00:00.000Z",
-                    "grantActive": True,
-                }
-            ]
-        ),
-    )
-
-    h.run("partner-organizations")
-
-    assert h.printed() == ["org_clinic True"]
-    assert h.api.requests_to("GET", "/auth/introspection") == []
 
 
 @runs("events-tail")

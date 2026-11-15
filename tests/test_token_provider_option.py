@@ -10,9 +10,6 @@ from teachmehipaa import (
     TeachMeHipaa,
 )
 from tests.fake_api import (
-    APP_BASIC_CREDENTIALS,
-    APP_ID,
-    APP_SECRET,
     CLIENT_ID,
     CLIENT_SECRET,
     LEARNER_ID,
@@ -110,47 +107,3 @@ def test_the_async_client_refuses_a_token_provider_with_credentials() -> None:
 def test_a_client_id_needs_its_client_secret() -> None:
     with pytest.raises(TypeError, match="client_id and client_secret"):
         TeachMeHipaa(client_id=CLIENT_ID)
-
-
-def test_a_partner_apps_own_credentials_call_partners_without_an_organization() -> None:
-    partner_id = "ptn_01JD82ZX4C5V6B7N8M9Q0W1E2R"
-    api = FakeApi()
-    api.on(
-        "POST",
-        "/auth/token",
-        Reply(
-            json={
-                "access_token": "access-token-partner",
-                "token_type": "Bearer",
-                "expires_in": 900,
-                "scope": "partner:orgs:read partner:orgs:write",
-            }
-        ),
-    )
-    api.on(
-        "GET",
-        f"/partners/{partner_id}",
-        Reply(
-            json={
-                "partnerId": partner_id,
-                "name": "Reseller Co",
-                "appId": APP_ID,
-                "status": "active",
-                "maxChildOrgs": 50,
-                "childOrgCount": 3,
-                "createdAt": "2026-11-01T09:00:00.000Z",
-            }
-        ),
-    )
-    client = TeachMeHipaa(
-        client_id=APP_ID, client_secret=APP_SECRET, http_client=api.sync_client()
-    )
-
-    partner = client.partners.retrieve(partner_id)
-
-    assert partner.partner_id == partner_id
-    assert api.requests_to("GET", "/auth/introspection") == []
-    [mint] = api.requests_to("POST", "/auth/token")
-    assert mint.headers["authorization"] == f"Basic {APP_BASIC_CREDENTIALS}"
-    [call] = api.requests_to("GET", f"/partners/{partner_id}")
-    assert call.headers["authorization"] == "Bearer access-token-partner"

@@ -34,10 +34,10 @@ Generated from the Developer API document release `waggish-wombat`.
 - Typed errors by status (`InvalidRequestError`, `AuthenticationError`,
   `PermissionDeniedError`, `NotFoundError`, `ConflictError`,
   `PreconditionFailedError`, `IdempotencyError`, `RateLimitError`,
-  `APIError`, `APIConnectionError`, `APITimeoutError`, `OAuthError`,
-  `TokenStoreError`) carrying the problem `code`, `detail`, field `errors`,
-  `headers` and `request_id`, with a guard that raises `APIError` for
-  non-JSON responses instead of a parse error.
+  `APIError`, `APIConnectionError`, `APITimeoutError`, `OAuthError`)
+  carrying the problem `code`, `detail`, field `errors`, `headers` and
+  `request_id`, with a guard that raises `APIError` for non-JSON responses
+  instead of a parse error.
 - Retries with exponential backoff and jitter for network errors, 409
   `conflict`, 429 and 5xx, honoring `Retry-After`, only for calls that are
   safe to replay; a generated `Idempotency-Key` per create and custom method,
@@ -68,11 +68,6 @@ Generated from the Developer API document release `waggish-wombat`.
   `TestDelivery`, accepting Flask's, Starlette's and Django's
   `request.headers`; and `Webhook.generate_test_headers` for testing
   handlers.
-- Partner apps: `teachmehipaa.oauth` (PKCE pair, state, consent URL, code
-  exchange) and `PartnerGrantTokenProvider` / `AsyncPartnerGrantTokenProvider`,
-  which save every rotated Refresh token to your token store before use and
-  never retry a Refresh token exchange. A client refuses a provider bound to
-  another Environment or base URL.
 - `events.tail` to read the Event log from a saved position, once or
   following new Events, stoppable with a `threading.Event` or
   `asyncio.Event`.

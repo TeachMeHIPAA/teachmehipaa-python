@@ -23,10 +23,6 @@ from ._core._config import (
     Environment,
     make_config,
 )
-from ._core._partner_grant import (
-    AsyncPartnerGrantTokenProvider,
-    PartnerGrantTokenProvider,
-)
 from ._core._pipeline import AsyncPipeline, SyncPipeline
 from ._core._retry import AsyncSender, SyncSender
 from ._webhooks import Webhook
@@ -69,21 +65,6 @@ def _credentials_or_provider(
     return token_provider
 
 
-def _check_same_base_url(tokens: object, config: ClientConfig) -> None:
-    # A Grant's Refresh token works only in its own Environment, and a
-    # provider that refreshed against another one would hand the client
-    # tokens its API refuses.
-    if (
-        isinstance(tokens, PartnerGrantTokenProvider | AsyncPartnerGrantTokenProvider)
-        and tokens.base_url != config.base_url
-    ):
-        raise ValueError(
-            f"token_provider exchanges Refresh tokens at {tokens.base_url}, but "
-            f"the client calls {config.base_url}; give both the same "
-            "environment and base_url"
-        )
-
-
 class _ConfigView:
     """Read-only access to the client's configuration, which is fixed at
     construction (ADR-0002)."""
@@ -113,15 +94,12 @@ class TeachMeHipaa(_ConfigView, SyncResources):
     Pass the API client's id and secret; the client mints, caches and renews
     Access tokens itself and discovers the Organization the credential is
     bound to unless `organization_id` is given. Or pass a `token_provider`,
-    such as a `PartnerGrantTokenProvider` or a `StaticTokenProvider`, to
-    supply every Access token from elsewhere.
+    such as a `StaticTokenProvider`, to supply every Access token from
+    elsewhere.
 
     With neither, the client makes only public calls (`courses`,
     `certificate_verifications.retrieve`); any other call raises
     `ValueError` before sending anything.
-
-    A Partner app's own id and secret mint a Partner-level token for
-    `partners.*`, which needs no Organization.
     """
 
     webhooks: ClassVar[type[Webhook]] = Webhook
@@ -158,7 +136,6 @@ class TeachMeHipaa(_ConfigView, SyncResources):
             app_info=app_info,
             clock=clock,
         )
-        _check_same_base_url(token_provider, self._config)
         self._http_client = http_client or httpx.Client(timeout=self._config.timeout)
         sender = SyncSender(self._http_client, sleep or time.sleep)
         tokens = (
@@ -221,7 +198,6 @@ class AsyncTeachMeHipaa(_ConfigView, AsyncResources):
             app_info=app_info,
             clock=clock,
         )
-        _check_same_base_url(token_provider, self._config)
         self._http_client = http_client or httpx.AsyncClient(
             timeout=self._config.timeout
         )

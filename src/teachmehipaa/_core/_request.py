@@ -346,8 +346,7 @@ def read_organization_id(response: httpx.Response) -> str:
     organization_id = _checked(response).json().get("orgId")
     if not isinstance(organization_id, str):
         raise TeachMeHipaaError(
-            "The access token is not bound to an Organization. Partner-level "
-            "tokens cannot call Organization endpoints.",
+            "The access token is not bound to an Organization.",
             status=response.status_code,
             request_id=request_id_of(response.headers),
             headers=response.headers,

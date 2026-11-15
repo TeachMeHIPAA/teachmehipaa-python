@@ -24,7 +24,6 @@ It has a synchronous client and an asyncio client with the same methods.
 - [Operations](#operations)
 - [Uploads and downloads](#uploads-and-downloads)
 - [Webhooks](#webhooks)
-- [Partner apps](#partner-apps)
 - [Tailing the Event log](#tailing-the-event-log)
 - [Async usage](#async-usage)
 - [Configuration](#configuration)
@@ -107,8 +106,7 @@ print(compliance.compliant_rate, compliance.last_response.request_id)
 ```
 
 A client's configuration is fixed when you create it. To act for another
-Organization, create another client. Partner-level calls (`partners.*`) are
-not Organization-scoped and take the `partner_id` as their first argument.
+Organization, create another client.
 
 ## Public lookups without credentials
 
@@ -228,12 +226,13 @@ The client retries network errors, 409 `conflict`, 429 and 5xx up to
 `max_retries` times (2 by default), backing off from 0.5 s up to 5 s with
 jitter and honoring `Retry-After` up to 60 s. It only retries calls that are
 safe to replay: reads, writes that carry an `Idempotency-Key`, and the few
-writes that are idempotent by nature, such as `seat_orders.quote`. PATCH and
-DELETE are never retried, and take no key: the API ignores one on them.
+writes that are idempotent by nature, such as `learners.create_launch_link`.
+PATCH and DELETE are never retried, and take no key: the API ignores one on
+them.
 
 Every create and custom method gets a generated UUID `Idempotency-Key`,
-reused by each of its retries, so a retry never enrolls a Learner twice or
-charges twice. Pass your own to make a call safe to repeat across processes.
+reused by each of its retries, so a retry never enrolls a Learner twice.
+Pass your own to make a call safe to repeat across processes.
 `max_retries` and `timeout` (in seconds) override the client's settings for
 one call, and `request_id` sends your own `x-request-id` on every attempt so
 the call can be found in your logs and TeachMeHIPAA's. The API echoes an id
@@ -504,137 +503,6 @@ if not isinstance(event, TestDelivery):
     print(event.event_type)
 ```
 
-## Partner apps
-
-A Partner app acts for many Organizations, each connected through a Grant
-that an admin approves on the TeachMeHIPAA consent screen. `oauth` builds
-the consent URL with a PKCE challenge and exchanges the returned code. Keep
-the `state` and `code_verifier` in the admin's server-side session between
-the two steps. The `sessions` and `grants` objects below stand in for your
-own storage.
-
-<!-- sample: partner-consent -->
-```python
-import os
-
-from teachmehipaa import oauth
-
-REDIRECT_URI = "https://partner.example.com/tmh/callback"
-
-
-def start_consent() -> str:
-    """Returns the URL to send the Organization's admin to."""
-    pkce = oauth.create_pkce_pair()
-    state = oauth.create_state()
-    sessions.save(state=state, code_verifier=pkce.code_verifier)
-    return oauth.authorize_url(
-        client_id=os.environ["TMH_APP_ID"],
-        redirect_uri=REDIRECT_URI,
-        scopes=["learners:read", "learners:write"],
-        state=state,
-        code_challenge=pkce.code_challenge,
-    )
-
-
-def finish_consent(code: str, state: str) -> None:
-    """Handles the redirect back to REDIRECT_URI."""
-    saved = sessions.load()
-    if state != saved.state:
-        raise PermissionError("state mismatch: possible CSRF")
-    grant = oauth.exchange_code(
-        client_id=os.environ["TMH_APP_ID"],
-        client_secret=os.environ["TMH_APP_SECRET"],
-        code=code,
-        redirect_uri=REDIRECT_URI,
-        code_verifier=saved.code_verifier,
-    )
-    grants.save("org_acme", grant.refresh_token)
-```
-
-A code works once, within 10 minutes, so the exchange is never retried.
-
-Then create a client per authorized Organization with a
-`PartnerGrantTokenProvider` and a token store: any object with `load()` and
-`save(refresh_token)`. Every token exchange rotates the Grant's Refresh
-token, and the provider saves each new one to the store before it uses the
-Access token that came with it.
-
-<!-- sample: partner-grant -->
-```python
-import os
-
-from teachmehipaa import PartnerGrantTokenProvider, TeachMeHipaa
-
-
-class GrantStore:
-    """The Refresh token of one Organization's Grant."""
-
-    def __init__(self, org_id: str) -> None:
-        self.org_id = org_id
-
-    def load(self) -> str:
-        return grants.load(self.org_id)
-
-    def save(self, refresh_token: str) -> None:
-        grants.save(self.org_id, refresh_token)
-
-
-client = TeachMeHipaa(
-    token_provider=PartnerGrantTokenProvider(
-        client_id=os.environ["TMH_APP_ID"],
-        client_secret=os.environ["TMH_APP_SECRET"],
-        token_store=GrantStore("org_acme"),
-    ),
-    organization_id="org_acme",
-)
-
-print(len(client.learners.list().items))
-```
-
-> [!WARNING]
-> Presenting a superseded Refresh token revokes the whole Grant (ADR-0004).
-> So `save` must persist durably before it returns, you should create one
-> provider per Grant and share it between clients, and a Refresh token
-> exchange is **never retried**: a network error during one raises
-> `APIConnectionError`, and an `OAuthError` with code `invalid_grant` means
-> the Organization must go through consent again. Never retry these yourself
-> with an old Refresh token. If `save` raises, the client raises
-> `TokenStoreError` and doesn't use the new token.
-
-Give the provider the same `environment` (and `base_url`) as the client:
-a client refuses, with `ValueError`, a provider that would exchange Refresh
-tokens against another Environment.
-
-The asyncio versions are `AsyncPartnerGrantTokenProvider` (with an
-`AsyncTokenStore`, whose methods are `async`) and `oauth.async_exchange_code`.
-
-For the Partner's own calls, such as listing and creating customer
-Organizations, authenticate with the Partner app's own id (`app_…`) and
-secret (`tmh_as_…`) as `client_id` and `client_secret`, and pass your
-`partner_id`:
-
-<!-- sample: partner-organizations -->
-```python
-import os
-
-from teachmehipaa import TeachMeHipaa
-
-partner = TeachMeHipaa(
-    client_id=os.environ["TMH_APP_ID"],
-    client_secret=os.environ["TMH_APP_SECRET"],
-)
-
-for organization in partner.partners.organizations.list(
-    "ptn_01JD8E2C3D4E5F6G7H8J9K0M1N"
-):
-    print(organization.org_id, organization.grant_active)
-```
-
-If you get Access tokens some other way, pass
-`token_provider=StaticTokenProvider(access_token)` (or
-`AsyncStaticTokenProvider` on the async client). A static token is never
-renewed; once it expires, calls raise `AuthenticationError`.
-
 ## Tailing the Event log
 
 `events.tail` reads the Event log oldest first and keeps its own position in
@@ -724,10 +592,10 @@ Every option is keyword-only:
 
 | Option            | Default                               | Description                                                                          |
 | ----------------- | ------------------------------------- | ------------------------------------------------------------------------------------ |
-| `client_id`       | None: public methods only             | Your API client's id (`cli_…`), or a Partner app's (`app_…`)                         |
-| `client_secret`   | Required with `client_id`             | The matching secret (`tmh_cs_…` or `tmh_as_…`)                                       |
+| `client_id`       | None: public methods only             | Your API client's id (`cli_…`)                                                       |
+| `client_secret`   | Required with `client_id`             | The matching secret (`tmh_cs_…`)                                                     |
 | `scopes`          | Every Scope the API client holds      | Narrows the Access token's Scopes                                                    |
-| `token_provider`  | Client credentials                    | Supplies Access tokens instead: `PartnerGrantTokenProvider`, `StaticTokenProvider`   |
+| `token_provider`  | Client credentials                    | Supplies Access tokens instead, such as a `StaticTokenProvider`                      |
 | `environment`     | `"live"`                              | `"live"` or `"sandbox"`; credentials work only in their own Environment              |
 | `base_url`        | The Environment's URL                 | Overrides it, e.g. to point at a mock server                                         |
 | `organization_id` | Looked up once with `auth.introspect` | The Organization to act for                                                          |
@@ -743,6 +611,11 @@ only public calls. Base URLs: Live is
 `https://api.tme.so/v1`; Sandbox is `https://api-teachmehipaa-dev.web.app/v1`.
 `environment`, `base_url`, `max_retries` and `timeout` can be read back from
 the client.
+
+If you get Access tokens some other way, pass
+`token_provider=StaticTokenProvider(access_token)` (or
+`AsyncStaticTokenProvider` on the async client). A static token is never
+renewed; once it expires, calls raise `AuthenticationError`.
 
 ## Logging
 

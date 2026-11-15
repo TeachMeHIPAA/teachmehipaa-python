@@ -208,35 +208,3 @@ class FakeAsyncSleep:
 
     async def __call__(self, seconds: float) -> None:
         self._sleep(seconds)
-
-
-APP_ID = "app_01JD7Z3M1V4Q8T2K5N9R6W0XYZ"
-APP_SECRET = "tmh_as_cGFydG5lci1zZWNyZXQ"
-# base64("<APP_ID>:<APP_SECRET>"), computed outside the SDK.
-APP_BASIC_CREDENTIALS = (
-    "YXBwXzAxSkQ3WjNNMVY0UThUMks1TjlSNlcwWFlaOnRtaF9hc19jR0Z5ZEc1bGNpMXpaV055WlhR"
-)
-REFRESH_TOKEN_1 = "tmh_rt_grt_01JD81QW3E4R5T6Y7U8I9O0PAS.first"
-REFRESH_TOKEN_2 = "tmh_rt_grt_01JD81QW3E4R5T6Y7U8I9O0PAS.second"
-REFRESH_TOKEN_3 = "tmh_rt_grt_01JD81QW3E4R5T6Y7U8I9O0PAS.third"
-
-
-def grant_token_reply(
-    access_token: str, refresh_token: str, expires_in: int = 900
-) -> Reply:
-    """`AuthorizationCodeTokenResponse` from the developer spec."""
-    return Reply(
-        json={
-            "access_token": access_token,
-            "token_type": "Bearer",
-            "expires_in": expires_in,
-            "refresh_token": refresh_token,
-            "scope": "learners:read learners:write",
-        },
-        headers={"cache-control": "no-store", "pragma": "no-cache"},
-    )
-
-
-def oauth_error_reply(error: str, description: str, status: int = 400) -> Reply:
-    """`OAuthTokenError` from the developer spec."""
-    return Reply(status=status, json={"error": error, "error_description": description})

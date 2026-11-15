@@ -6,7 +6,6 @@ from __future__ import annotations
 import asyncio
 import threading
 from base64 import b64encode
-from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
 from urllib.parse import quote_plus, urlencode
@@ -54,52 +53,28 @@ def require_text(value: str, name: str) -> str:
 
 @dataclass(frozen=True)
 class ClientCredentials:
-    """An API client's or a Partner app's id and secret."""
+    """An API client's id and secret."""
 
     client_id: str
     client_secret: str = field(repr=False)
-
-    @classmethod
-    def checked(cls, client_id: str, client_secret: str) -> ClientCredentials:
-        """A Partner app's credentials, refusing empty values before any
-        exchange is attempted."""
-        return cls(
-            require_text(client_id, "client_id"),
-            require_text(client_secret, "client_secret"),
-        )
-
-    def token_request(
-        self,
-        url: str,
-        form: Mapping[str, str],
-        *,
-        user_agent: str,
-        timeout: httpx.Timeout,
-    ) -> httpx.Request:
-        # RFC 6749 §2.3.1: form-encode each half before base64.
-        credentials = f"{quote_plus(self.client_id)}:{quote_plus(self.client_secret)}"
-        return httpx.Request(
-            "POST",
-            url,
-            content=urlencode(form).encode(),
-            headers={
-                "accept": "application/json",
-                "authorization": f"Basic {b64encode(credentials.encode()).decode()}",
-                "content-type": "application/x-www-form-urlencoded",
-                "user-agent": user_agent,
-            },
-            extensions={"timeout": timeout.as_dict()},
-        )
 
     def client_credentials_request(self, config: ClientConfig) -> httpx.Request:
         form = {"grant_type": "client_credentials"}
         if config.scopes is not None:
             form["scope"] = " ".join(config.scopes)
-        return self.token_request(
+        # RFC 6749 §2.3.1: form-encode each half before base64.
+        credentials = f"{quote_plus(self.client_id)}:{quote_plus(self.client_secret)}"
+        return httpx.Request(
+            "POST",
             config.base_url + TOKEN_PATH,
-            form,
-            user_agent=config.user_agent,
-            timeout=config.timeout,
+            content=urlencode(form).encode(),
+            headers={
+                "accept": "application/json",
+                "authorization": f"Basic {b64encode(credentials.encode()).decode()}",
+                "content-type": "application/x-www-form-urlencoded",
+                "user-agent": config.user_agent,
+            },
+            extensions={"timeout": config.timeout.as_dict()},
         )
 
 
@@ -115,8 +90,7 @@ def read_access_token(response: httpx.Response, *, minted_at: float) -> AccessTo
 
 def mint_retry_policy(config: ClientConfig) -> RetryPolicy:
     # A client-credentials grant mints a fresh token each time, so replaying
-    # it is harmless. Refresh-token and authorization-code exchanges must
-    # never use this: replaying one revokes the Grant (ADR-0004).
+    # it is harmless.
     return RetryPolicy(retry_safe=True, max_retries=config.max_retries)
 
 

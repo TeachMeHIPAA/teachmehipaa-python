@@ -51,36 +51,6 @@ class ClientConfig:
     clock: Callable[[], float]
 
 
-@dataclass(frozen=True)
-class TokenEndpoint:
-    """How to reach the OAuth token endpoint without a client."""
-
-    base_url: str
-    user_agent: str
-    timeout: httpx.Timeout
-    clock: Callable[[], float]
-
-    @property
-    def url(self) -> str:
-        return self.base_url + TOKEN_PATH
-
-
-def make_token_endpoint(
-    *,
-    environment: Environment,
-    base_url: str | None,
-    timeout: float | httpx.Timeout,
-    app_info: AppInfo | None,
-    clock: Callable[[], float] | None,
-) -> TokenEndpoint:
-    return TokenEndpoint(
-        base_url=resolve_base_url(environment, base_url),
-        user_agent=_user_agent(app_info),
-        timeout=httpx.Timeout(timeout),
-        clock=clock or time.monotonic,
-    )
-
-
 def make_config(
     *,
     environment: Environment,
