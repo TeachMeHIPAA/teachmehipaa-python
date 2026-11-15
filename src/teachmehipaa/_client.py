@@ -40,9 +40,13 @@ def _credentials_or_provider(
     client_secret: str | None,
     token_provider: ProviderT | None,
     scopes: Sequence[str] | None,
-) -> ClientCredentials | ProviderT:
-    """The credentials to mint with, or the provider that supplies every
-    Access token instead."""
+) -> ClientCredentials | ProviderT | None:
+    """The credentials to mint with, the provider that supplies every Access
+    token instead, or `None` for a client that makes only public calls."""
+    if client_id is None and client_secret is None and scopes is None:
+        # Without a token provider either, this is a public client; half a
+        # pair of client credentials is a mistake, so it still fails below.
+        return token_provider
     if token_provider is None:
         if client_id is None or client_secret is None:
             raise TypeError("pass client_id and client_secret, or token_provider")
@@ -111,6 +115,10 @@ class TeachMeHipaa(_ConfigView, SyncResources):
     bound to unless `organization_id` is given. Or pass a `token_provider`,
     such as a `PartnerGrantTokenProvider` or a `StaticTokenProvider`, to
     supply every Access token from elsewhere.
+
+    With neither, the client makes only public calls (`courses`,
+    `certificate_verifications.retrieve`); any other call raises
+    `ValueError` before sending anything.
 
     A Partner app's own id and secret mint a Partner-level token for
     `partners.*`, which needs no Organization.

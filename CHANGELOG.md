@@ -24,6 +24,11 @@ Generated from the Developer API document release `waggish-wombat`.
   and `StaticTokenProvider` / `AsyncStaticTokenProvider` for Access tokens
   obtained elsewhere. Public methods (`courses.*`,
   `certificate_verifications.retrieve`) send no token.
+- A client without credentials, `TeachMeHipaa(environment="sandbox")` or
+  `AsyncTeachMeHipaa(...)`, for public lookups such as Certificate
+  verification. Any other call raises `ValueError` before sending a request;
+  giving only one of `client_id` and `client_secret` still raises
+  `TypeError`.
 - The Organization binding: discovered once through `auth.introspect`, or
   given as `organization_id`.
 - Typed errors by status (`InvalidRequestError`, `AuthenticationError`,

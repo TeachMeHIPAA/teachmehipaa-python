@@ -402,6 +402,31 @@ def _organization(h: Harness) -> None:
     assert h.printed() == [f"0.75 {REQUEST_ID}"]
 
 
+@runs("public-lookups")
+def _public_lookups(h: Harness) -> None:
+    h.api.on(
+        "GET",
+        "/certificate-verifications/aB3dE9",
+        Reply(
+            json={
+                "status": "valid",
+                "learnerName": "Ana Lima",
+                "courseTitle": "HIPAA Essentials 2026",
+                "issuedAt": "2026-11-02T10:30:00.000Z",
+                "expiresAt": "2027-11-02T10:30:00.000Z",
+                "issuer": "TeachMeHIPAA",
+            }
+        ),
+    )
+    h.api.on("GET", "/courses", page([COURSE]))
+
+    h.run("public-lookups")
+
+    assert h.printed() == ["valid Ana Lima", "HIPAA Essentials 2026"]
+    assert h.api.requests_to("POST", "/auth/token") == []
+    assert all("authorization" not in r.headers for r in h.api.requests)
+
+
 @runs("learner-writes")
 def _learner_writes(h: Harness) -> None:
     h.api.on("POST", f"{ORG}/learners", Reply(status=201, json=LEARNER))

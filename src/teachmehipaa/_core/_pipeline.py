@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import asyncio
 import threading
+from typing import TypeVar
 
 import httpx
 from pydantic import TypeAdapter
@@ -34,6 +35,23 @@ from ._request import (
 )
 from ._retry import AsyncReplay, AsyncSender, Replay, RetryPolicy, SyncSender
 
+ProviderT = TypeVar("ProviderT", TokenProvider, AsyncTokenProvider)
+
+
+def _tokens_for(api_request: ApiRequest, tokens: ProviderT | None) -> ProviderT | None:
+    """Where `api_request`'s Access tokens come from: `None` for a public
+    endpoint. A client without credentials can still make public calls, so
+    the call that needs one is refused, before anything is sent."""
+    if not api_request.authenticated:
+        return None
+    if tokens is None:
+        raise ValueError(
+            f"{api_request.method} {api_request.path} needs credentials, and this "
+            "client has none; pass client_id and client_secret, or a "
+            "token_provider, when you create the client"
+        )
+    return tokens
+
 
 def _retry_policy(config: ClientConfig, api_request: ApiRequest) -> RetryPolicy:
     # An Idempotency-Key deliberately plays no part: the API ignores keys on
@@ -44,9 +62,9 @@ def _retry_policy(config: ClientConfig, api_request: ApiRequest) -> RetryPolicy:
     )
 
 
-def _replay(api_request: ApiRequest, tokens: TokenProvider) -> Replay | None:
+def _replay(tokens: TokenProvider | None) -> Replay | None:
     # A public endpoint's 401 can't be fixed by a fresh token.
-    if not api_request.authenticated:
+    if tokens is None:
         return None
 
     def replay(refused: httpx.Request) -> bool:
@@ -59,10 +77,8 @@ def _replay(api_request: ApiRequest, tokens: TokenProvider) -> Replay | None:
     return replay
 
 
-def _async_replay(
-    api_request: ApiRequest, tokens: AsyncTokenProvider
-) -> AsyncReplay | None:
-    if not api_request.authenticated:
+def _async_replay(tokens: AsyncTokenProvider | None) -> AsyncReplay | None:
+    if tokens is None:
         return None
 
     async def replay(refused: httpx.Request) -> bool:
@@ -78,7 +94,7 @@ class SyncPipeline:
         self,
         config: ClientConfig,
         sender: SyncSender,
-        token_provider: TokenProvider,
+        token_provider: TokenProvider | None,
     ) -> None:
         self.config = config
         self._sender = sender
@@ -144,14 +160,17 @@ class SyncPipeline:
         )
 
     def send(self, api_request: ApiRequest, *, stream: bool = False) -> httpx.Response:
+        # Checked before the Organization lookup, which needs a token too.
+        tokens = _tokens_for(api_request, self._tokens)
         api_request = read_uploads(api_request)
         organization_id = self._organization() if api_request.org_scoped else None
-        return self._send(api_request, organization_id, stream=stream)
+        return self._send(api_request, organization_id, tokens, stream=stream)
 
     def _send(
         self,
         api_request: ApiRequest,
         organization_id: str | None,
+        tokens: TokenProvider | None,
         *,
         stream: bool = False,
     ) -> httpx.Response:
@@ -160,15 +179,13 @@ class SyncPipeline:
             lambda: build_request(
                 self.config,
                 api_request,
-                access_token=(
-                    self._tokens.access_token() if api_request.authenticated else None
-                ),
+                access_token=None if tokens is None else tokens.access_token(),
                 organization_id=organization_id,
                 idempotency_key=idempotency_key,
             ),
             error_from_response,
             _retry_policy(self.config, api_request),
-            replay=_replay(api_request, self._tokens),
+            replay=_replay(tokens),
             stream=stream,
         )
 
@@ -176,7 +193,9 @@ class SyncPipeline:
         with self._organization_lock:
             if self._organization_id is None:
                 self._organization_id = read_organization_id(
-                    self._send(INTROSPECTION, None)
+                    self._send(
+                        INTROSPECTION, None, _tokens_for(INTROSPECTION, self._tokens)
+                    )
                 )
             return self._organization_id
 
@@ -186,7 +205,7 @@ class AsyncPipeline:
         self,
         config: ClientConfig,
         sender: AsyncSender,
-        token_provider: AsyncTokenProvider,
+        token_provider: AsyncTokenProvider | None,
     ) -> None:
         self.config = config
         self._sender = sender
@@ -258,16 +277,19 @@ class AsyncPipeline:
     async def send(
         self, api_request: ApiRequest, *, stream: bool = False
     ) -> httpx.Response:
+        # Checked before the Organization lookup, which needs a token too.
+        tokens = _tokens_for(api_request, self._tokens)
         if api_request.binary_parts:
             # Reading a file blocks; keep it off the event loop.
             api_request = await asyncio.to_thread(read_uploads, api_request)
         organization_id = await self._organization() if api_request.org_scoped else None
-        return await self._send(api_request, organization_id, stream=stream)
+        return await self._send(api_request, organization_id, tokens, stream=stream)
 
     async def _send(
         self,
         api_request: ApiRequest,
         organization_id: str | None,
+        tokens: AsyncTokenProvider | None,
         *,
         stream: bool = False,
     ) -> httpx.Response:
@@ -277,11 +299,7 @@ class AsyncPipeline:
             return build_request(
                 self.config,
                 api_request,
-                access_token=(
-                    await self._tokens.access_token()
-                    if api_request.authenticated
-                    else None
-                ),
+                access_token=None if tokens is None else await tokens.access_token(),
                 organization_id=organization_id,
                 idempotency_key=idempotency_key,
             )
@@ -290,7 +308,7 @@ class AsyncPipeline:
             make_request,
             error_from_response,
             _retry_policy(self.config, api_request),
-            replay=_async_replay(api_request, self._tokens),
+            replay=_async_replay(tokens),
             stream=stream,
         )
 
@@ -298,6 +316,8 @@ class AsyncPipeline:
         async with self._organization_lock:
             if self._organization_id is None:
                 self._organization_id = read_organization_id(
-                    await self._send(INTROSPECTION, None)
+                    await self._send(
+                        INTROSPECTION, None, _tokens_for(INTROSPECTION, self._tokens)
+                    )
                 )
             return self._organization_id

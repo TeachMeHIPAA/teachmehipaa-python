@@ -15,6 +15,7 @@ It has a synchronous client and an asyncio client with the same methods.
 - [Installation](#installation)
 - [Quickstart](#quickstart)
 - [The Organization binding](#the-organization-binding)
+- [Public lookups without credentials](#public-lookups-without-credentials)
 - [Creating Learners](#creating-learners)
 - [Pagination](#pagination)
 - [Errors](#errors)
@@ -109,8 +110,29 @@ A client's configuration is fixed when you create it. To act for another
 Organization, create another client. Partner-level calls (`partners.*`) are
 not Organization-scoped and take the `partner_id` as their first argument.
 
+## Public lookups without credentials
+
 Public methods, `courses.list`, `courses.retrieve` and
-`certificate_verifications.retrieve`, send no Access token at all.
+`certificate_verifications.retrieve`, send no Access token at all. To call
+only those, such as to check a Certificate someone showed you, create a
+client without credentials:
+
+<!-- sample: public-lookups -->
+```python
+from teachmehipaa import TeachMeHipaa
+
+client = TeachMeHipaa(environment="sandbox")
+
+verification = client.certificate_verifications.retrieve("aB3dE9")
+print(verification.status, verification.learner_name)
+
+for course in client.courses.list():
+    print(course.title)
+```
+
+Any other method on such a client raises `ValueError` before it sends
+anything. Pass `client_id` and `client_secret`, or a `token_provider`, to
+call them. `AsyncTeachMeHipaa(environment="sandbox")` works the same way.
 
 ## Creating Learners
 
@@ -702,7 +724,7 @@ Every option is keyword-only:
 
 | Option            | Default                               | Description                                                                          |
 | ----------------- | ------------------------------------- | ------------------------------------------------------------------------------------ |
-| `client_id`       | Required, or `token_provider`         | Your API client's id (`cli_…`), or a Partner app's (`app_…`)                         |
+| `client_id`       | None: public methods only             | Your API client's id (`cli_…`), or a Partner app's (`app_…`)                         |
 | `client_secret`   | Required with `client_id`             | The matching secret (`tmh_cs_…` or `tmh_as_…`)                                       |
 | `scopes`          | Every Scope the API client holds      | Narrows the Access token's Scopes                                                    |
 | `token_provider`  | Client credentials                    | Supplies Access tokens instead: `PartnerGrantTokenProvider`, `StaticTokenProvider`   |
@@ -716,7 +738,8 @@ Every option is keyword-only:
 | `clock`, `sleep`  | `time.monotonic`, `time.sleep`        | Supply the time and waits, for tests (`asyncio.sleep` on the async client)           |
 
 Pass either `client_id` and `client_secret`, or `token_provider`, not both;
-`scopes` then belong to the token provider. Base URLs: Live is
+`scopes` then belong to the token provider. With neither, the client makes
+only public calls. Base URLs: Live is
 `https://api.tme.so/v1`; Sandbox is `https://api-teachmehipaa-dev.web.app/v1`.
 `environment`, `base_url`, `max_retries` and `timeout` can be read back from
 the client.

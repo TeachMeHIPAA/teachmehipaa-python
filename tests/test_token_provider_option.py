@@ -107,7 +107,7 @@ def test_the_async_client_refuses_a_token_provider_with_credentials() -> None:
         )
 
 
-def test_a_client_needs_credentials_or_a_token_provider() -> None:
+def test_a_client_id_needs_its_client_secret() -> None:
     with pytest.raises(TypeError, match="client_id and client_secret"):
         TeachMeHipaa(client_id=CLIENT_ID)
 
