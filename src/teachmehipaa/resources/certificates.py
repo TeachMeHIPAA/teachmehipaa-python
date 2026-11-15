@@ -38,6 +38,7 @@ class Certificates(SyncAPIResource):
         stream: Literal[False] = False,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BinaryResponse: ...
 
     @overload
@@ -49,6 +50,7 @@ class Certificates(SyncAPIResource):
         stream: Literal[True],
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BinaryStream: ...
 
     @overload
@@ -60,6 +62,7 @@ class Certificates(SyncAPIResource):
         stream: bool,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BinaryResponse | BinaryStream: ...
 
     def download_pdf(
@@ -70,8 +73,9 @@ class Certificates(SyncAPIResource):
         stream: bool = False,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BinaryResponse | BinaryStream:
-        """Download a certificate
+        """Download a certificate.
 
         Downloads the certificate as a PDF. Revoked and expired certificates are
         watermarked. Requires the `certificates:read` scope.
@@ -85,6 +89,10 @@ class Certificates(SyncAPIResource):
                 Use it as a context manager so the connection is released.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         api_request = ApiRequest(
             "GET",
@@ -93,7 +101,9 @@ class Certificates(SyncAPIResource):
             binary_content_type="application/pdf",
             org_scoped=True,
             retry_safe=True,
-            options=RequestOptions(max_retries=max_retries, timeout=timeout),
+            options=RequestOptions(
+                max_retries=max_retries, timeout=timeout, request_id=request_id
+            ),
         )
         if stream:
             return self._pipeline.request_binary_stream(api_request)
@@ -106,8 +116,9 @@ class Certificates(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Operation:
-        """Export certificates
+        """Export certificates.
 
         Exports the organization's certificate records as CSV. Requires the
         `certificates:read` scope.
@@ -118,6 +129,10 @@ class Certificates(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return request_operation(
             self._pipeline,
@@ -132,6 +147,7 @@ class Certificates(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             Operation,
@@ -145,8 +161,9 @@ class Certificates(SyncAPIResource):
         subject_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[Certificate]:
-        """List all certificates
+        """List all certificates.
 
         Returns a list of the organization's certificates. Pass `subjectId` to list one
         learner's.
@@ -157,6 +174,10 @@ class Certificates(SyncAPIResource):
             subject_id: Filter to one holder (canonical subject id).
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -165,11 +186,12 @@ class Certificates(SyncAPIResource):
                 query={"limit": limit, "cursor": cursor, "subjectId": subject_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             CertificatesPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     def retrieve(
@@ -179,14 +201,19 @@ class Certificates(SyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Certificate:
-        """Retrieve a certificate
+        """Retrieve a certificate.
 
         Retrieves a certificate.
 
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -195,7 +222,9 @@ class Certificates(SyncAPIResource):
                 path_params={"certId": cert_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Certificate,
         )
@@ -207,8 +236,9 @@ class Certificates(SyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> CertificateLinks:
-        """Retrieve certificate links
+        """Retrieve certificate links.
 
         Retrieves the certificate's LinkedIn add-to-profile link and its public `tme.so`
         verification link. Requires the `certificates:read` scope.
@@ -216,6 +246,10 @@ class Certificates(SyncAPIResource):
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -224,7 +258,9 @@ class Certificates(SyncAPIResource):
                 path_params={"certId": cert_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             CertificateLinks,
         )
@@ -240,6 +276,7 @@ class AsyncCertificates(AsyncAPIResource):
         stream: Literal[False] = False,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BinaryResponse: ...
 
     @overload
@@ -251,6 +288,7 @@ class AsyncCertificates(AsyncAPIResource):
         stream: Literal[True],
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncBinaryStream: ...
 
     @overload
@@ -262,6 +300,7 @@ class AsyncCertificates(AsyncAPIResource):
         stream: bool,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BinaryResponse | AsyncBinaryStream: ...
 
     async def download_pdf(
@@ -272,8 +311,9 @@ class AsyncCertificates(AsyncAPIResource):
         stream: bool = False,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BinaryResponse | AsyncBinaryStream:
-        """Download a certificate
+        """Download a certificate.
 
         Downloads the certificate as a PDF. Revoked and expired certificates are
         watermarked. Requires the `certificates:read` scope.
@@ -287,6 +327,10 @@ class AsyncCertificates(AsyncAPIResource):
                 Use it as a context manager so the connection is released.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         api_request = ApiRequest(
             "GET",
@@ -295,7 +339,9 @@ class AsyncCertificates(AsyncAPIResource):
             binary_content_type="application/pdf",
             org_scoped=True,
             retry_safe=True,
-            options=RequestOptions(max_retries=max_retries, timeout=timeout),
+            options=RequestOptions(
+                max_retries=max_retries, timeout=timeout, request_id=request_id
+            ),
         )
         if stream:
             return await self._pipeline.request_binary_stream(api_request)
@@ -308,8 +354,9 @@ class AsyncCertificates(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncOperation:
-        """Export certificates
+        """Export certificates.
 
         Exports the organization's certificate records as CSV. Requires the
         `certificates:read` scope.
@@ -320,6 +367,10 @@ class AsyncCertificates(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await async_request_operation(
             self._pipeline,
@@ -334,6 +385,7 @@ class AsyncCertificates(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             AsyncOperation,
@@ -347,8 +399,9 @@ class AsyncCertificates(AsyncAPIResource):
         subject_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[Certificate]:
-        """List all certificates
+        """List all certificates.
 
         Returns a list of the organization's certificates. Pass `subjectId` to list one
         learner's.
@@ -359,6 +412,10 @@ class AsyncCertificates(AsyncAPIResource):
             subject_id: Filter to one holder (canonical subject id).
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -367,11 +424,12 @@ class AsyncCertificates(AsyncAPIResource):
                 query={"limit": limit, "cursor": cursor, "subjectId": subject_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             CertificatesPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     async def retrieve(
@@ -381,14 +439,19 @@ class AsyncCertificates(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Certificate:
-        """Retrieve a certificate
+        """Retrieve a certificate.
 
         Retrieves a certificate.
 
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -397,7 +460,9 @@ class AsyncCertificates(AsyncAPIResource):
                 path_params={"certId": cert_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Certificate,
         )
@@ -409,8 +474,9 @@ class AsyncCertificates(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> CertificateLinks:
-        """Retrieve certificate links
+        """Retrieve certificate links.
 
         Retrieves the certificate's LinkedIn add-to-profile link and its public `tme.so`
         verification link. Requires the `certificates:read` scope.
@@ -418,6 +484,10 @@ class AsyncCertificates(AsyncAPIResource):
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -426,7 +496,9 @@ class AsyncCertificates(AsyncAPIResource):
                 path_params={"certId": cert_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             CertificateLinks,
         )

@@ -47,22 +47,22 @@ class AccessTokenResponse(BaseModel):
 
 
 class AuditEventActorAgent(BaseModel):
-    type: str
+    type: Literal["agent"]
     agent_id: str
 
 
 class AuditEventActorClient(BaseModel):
-    type: str
+    type: Literal["client"]
     client_id: str
 
 
 class AuditEventActorScim(BaseModel):
-    type: str
+    type: Literal["scim"]
     key_id: str
 
 
 class AuditEventActorUser(BaseModel):
-    type: str
+    type: Literal["user"]
     subject_id: str
 
 
@@ -89,7 +89,7 @@ AuditEventActor: TypeAlias = Annotated[
 class AuditEventApiClientCreated(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["api_client.created"]
     actor_subject_id: str
     actor: AuditEventActor
     client_id: str
@@ -98,7 +98,7 @@ class AuditEventApiClientCreated(BaseModel):
 class AuditEventApiClientRevoked(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["api_client.revoked"]
     actor_subject_id: str
     actor: AuditEventActor
     client_id: str
@@ -107,7 +107,7 @@ class AuditEventApiClientRevoked(BaseModel):
 class AuditEventApiClientSecretRotated(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["api_client.secret_rotated"]
     actor_subject_id: str
     actor: AuditEventActor
     client_id: str
@@ -121,7 +121,7 @@ AuditEventApiClientUpdatedFieldsItem: TypeAlias = (
 class AuditEventApiClientUpdated(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["api_client.updated"]
     actor_subject_id: str
     actor: AuditEventActor
     client_id: str
@@ -131,7 +131,7 @@ class AuditEventApiClientUpdated(BaseModel):
 class AuditEventCertificateIssued(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["certificate.issued"]
     actor_subject_id: str
     actor: AuditEventActor
     certificate_id: str
@@ -142,7 +142,7 @@ class AuditEventCertificateIssued(BaseModel):
 class AuditEventCertificateRevoked(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["certificate.revoked"]
     actor_subject_id: str
     actor: AuditEventActor
     certificate_id: str
@@ -196,7 +196,7 @@ AuditEventEnrollmentTransitionTransition: TypeAlias = (
 class AuditEventEnrollmentTransition(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["enrollment.transition"]
     transition: AuditEventEnrollmentTransitionTransition
     subject_id: str
     course_id: str
@@ -210,7 +210,7 @@ class AuditEventEnrollmentTransition(BaseModel):
 class AuditEventLearnerLaunchLinkCreated(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["learner.launch_link_created"]
     actor_subject_id: str
     actor: AuditEventActor
     subject_id: str
@@ -223,7 +223,7 @@ AuditEventLearnerUpdatedFieldsItem: TypeAlias = Literal["name", "externalId"] | 
 class AuditEventLearnerUpdated(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["learner.updated"]
     actor_subject_id: str
     actor: AuditEventActor
     subject_id: str
@@ -233,7 +233,7 @@ class AuditEventLearnerUpdated(BaseModel):
 class AuditEventMemberRemoved(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["member.removed"]
     actor_subject_id: str
     actor: AuditEventActor
     subject_id: str
@@ -249,7 +249,7 @@ AuditEventMemberRoleChangedRoleTo: TypeAlias = Literal["admin", "learner"] | str
 class AuditEventMemberRoleChanged(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["member.role_changed"]
     actor_subject_id: str
     actor: AuditEventActor
     subject_id: str
@@ -260,7 +260,7 @@ class AuditEventMemberRoleChanged(BaseModel):
 class AuditEventMemberTransferred(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["member.transferred"]
     actor_subject_id: str
     actor: AuditEventActor
     subject_id: str
@@ -287,7 +287,7 @@ AuditEventOauthGrantCreatedScopesItem: TypeAlias = (
 class AuditEventOauthGrantCreated(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["oauth_grant.created"]
     actor_subject_id: str
     actor: AuditEventActor
     app_id: str
@@ -303,7 +303,7 @@ AuditEventOauthGrantRevokedReason: TypeAlias = (
 class AuditEventOauthGrantRevoked(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["oauth_grant.revoked"]
     actor_subject_id: str
     actor: AuditEventActor
     app_id: str
@@ -319,7 +319,7 @@ AuditEventOauthGrantUpdatedFieldsItem: TypeAlias = (
 class AuditEventOauthGrantUpdated(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["oauth_grant.updated"]
     actor_subject_id: str
     actor: AuditEventActor
     app_id: str
@@ -330,7 +330,7 @@ class AuditEventOauthGrantUpdated(BaseModel):
 class AuditEventOrganizationClosed(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["organization.closed"]
     actor_subject_id: str
     actor: AuditEventActor
 
@@ -338,7 +338,7 @@ class AuditEventOrganizationClosed(BaseModel):
 class AuditEventOrganizationCreatedByPartner(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["organization.created_by_partner"]
     actor_subject_id: str
     actor: AuditEventActor
     partner_id: str
@@ -349,7 +349,7 @@ class AuditEventOrganizationCreatedByPartner(BaseModel):
 class AuditEventOrganizationReopened(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["organization.reopened"]
     actor_subject_id: str
     actor: AuditEventActor
 
@@ -362,7 +362,7 @@ AuditEventOrganizationUpdatedFieldsItem: TypeAlias = (
 class AuditEventOrganizationUpdated(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["organization.updated"]
     actor_subject_id: str
     actor: AuditEventActor
     fields: list[AuditEventOrganizationUpdatedFieldsItem]
@@ -371,7 +371,7 @@ class AuditEventOrganizationUpdated(BaseModel):
 class AuditEventSeatGranted(BaseModel):
     event_id: str
     at: str
-    type: str
+    type: Literal["seat.granted"]
     actor_subject_id: str
     actor: AuditEventActor
     quantity: int
@@ -390,7 +390,7 @@ class AuditEventSeatOrderCreated(BaseModel):
     seat_order_id: str
     quantity: int
     payment_method: AuditEventPaymentMethod
-    type: str
+    type: Literal["seat_order.created"]
     grant_id: str | None = None
 
 
@@ -402,7 +402,7 @@ class AuditEventSeatOrderFailed(BaseModel):
     seat_order_id: str
     quantity: int
     payment_method: AuditEventPaymentMethod
-    type: str
+    type: Literal["seat_order.failed"]
     failure_code: str | None
 
 
@@ -414,7 +414,7 @@ class AuditEventSeatOrderPaid(BaseModel):
     seat_order_id: str
     quantity: int
     payment_method: AuditEventPaymentMethod
-    type: str
+    type: Literal["seat_order.paid"]
 
 
 class UnknownAuditEvent(BaseModel):
@@ -504,12 +504,12 @@ class AuthorizationCodeTokenResponse(BaseModel):
 
 
 class PaymentMethodSavedByApiClient(BaseModel):
-    type: str
+    type: Literal["api_client"]
     name: str
 
 
 class PaymentMethodSavedByUser(BaseModel):
-    type: str
+    type: Literal["user"]
     name: str
 
 
@@ -1108,7 +1108,7 @@ class EnrollmentsListPage(PageBody[OrgEnrollmentListItem]):
 
 class EventCertificateRevoked(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["certificate.revoked"]
     org_id: str
     occurred_at: datetime
     data: CertificateRevokedEventData
@@ -1116,7 +1116,7 @@ class EventCertificateRevoked(BaseModel):
 
 class EventEnrollmentCertified(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["enrollment.certified"]
     org_id: str
     occurred_at: datetime
     data: EnrollmentCertifiedEventData
@@ -1147,7 +1147,7 @@ class LearnerEventData(BaseModel):
 
 class EventInviteBounced(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["invite.bounced"]
     org_id: str
     occurred_at: datetime
     data: LearnerEventData
@@ -1155,7 +1155,7 @@ class EventInviteBounced(BaseModel):
 
 class EventLearnerCertified(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["learner.certified"]
     org_id: str
     occurred_at: datetime
     data: LearnerEventData
@@ -1163,7 +1163,7 @@ class EventLearnerCertified(BaseModel):
 
 class EventLearnerExpired(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["learner.expired"]
     org_id: str
     occurred_at: datetime
     data: LearnerEventData
@@ -1171,7 +1171,7 @@ class EventLearnerExpired(BaseModel):
 
 class EventLearnerExpiring(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["learner.expiring"]
     org_id: str
     occurred_at: datetime
     data: LearnerEventData
@@ -1179,7 +1179,7 @@ class EventLearnerExpiring(BaseModel):
 
 class EventLearnerInvited(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["learner.invited"]
     org_id: str
     occurred_at: datetime
     data: LearnerEventData
@@ -1187,7 +1187,7 @@ class EventLearnerInvited(BaseModel):
 
 class EventLearnerRemoved(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["learner.removed"]
     org_id: str
     occurred_at: datetime
     data: LearnerEventData
@@ -1195,7 +1195,7 @@ class EventLearnerRemoved(BaseModel):
 
 class EventLearnerStarted(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["learner.started"]
     org_id: str
     occurred_at: datetime
     data: LearnerEventData
@@ -1203,7 +1203,7 @@ class EventLearnerStarted(BaseModel):
 
 class EventSeatConsumed(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["seat.consumed"]
     org_id: str
     occurred_at: datetime
     data: dict[str, Any]
@@ -1211,7 +1211,7 @@ class EventSeatConsumed(BaseModel):
 
 class EventSeatFreed(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["seat.freed"]
     org_id: str
     occurred_at: datetime
     data: dict[str, Any]
@@ -1228,7 +1228,7 @@ class SeatOrderEventData(BaseModel):
 
 class EventSeatOrderExpired(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["seat_order.expired"]
     org_id: str
     occurred_at: datetime
     data: SeatOrderEventData
@@ -1236,7 +1236,7 @@ class EventSeatOrderExpired(BaseModel):
 
 class EventSeatOrderFailed(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["seat_order.failed"]
     org_id: str
     occurred_at: datetime
     data: SeatOrderEventData
@@ -1244,7 +1244,7 @@ class EventSeatOrderFailed(BaseModel):
 
 class EventSeatOrderPaid(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["seat_order.paid"]
     org_id: str
     occurred_at: datetime
     data: SeatOrderEventData
@@ -1257,7 +1257,7 @@ class SeatsLowEventData(BaseModel):
 
 class EventSeatsLow(BaseModel):
     event_id: str
-    event_type: str
+    event_type: Literal["seats.low"]
     org_id: str
     occurred_at: datetime
     data: SeatsLowEventData
@@ -1984,17 +1984,17 @@ class SeatOrder(BaseModel):
 
 
 class SeatOrderCreateRequestPaymentHostedCheckout(BaseModel):
-    method: str
+    method: Literal["hosted_checkout"]
     return_url: str
 
 
 class SeatOrderCreateRequestPaymentInvoice(BaseModel):
-    method: str
+    method: Literal["invoice"]
     days_until_due: int | None = None
 
 
 class SeatOrderCreateRequestPaymentSavedPaymentMethod(BaseModel):
-    method: str
+    method: Literal["saved_payment_method"]
     return_url: str | None = None
     payment_method_id: str | None = None
     expected_total: int | None = None
@@ -2048,12 +2048,12 @@ class SeatOrderCreatedFailure(BaseModel):
 
 
 class SeatOrderCreatedNextActionInvoice(BaseModel):
-    type: str
+    type: Literal["invoice"]
     hosted_invoice_url: str
 
 
 class SeatOrderCreatedNextActionRedirect(BaseModel):
-    type: str
+    type: Literal["redirect"]
     url: str
 
 

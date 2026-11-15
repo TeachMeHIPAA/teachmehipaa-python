@@ -17,8 +17,9 @@ class PaymentMethod(SyncAPIResource):
         setup_intent_id: str,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BillingPaymentMethod:
-        """Finish saving a card
+        """Finish saving a card.
 
         Makes the card from a confirmed SetupIntent the organization's default for seat
         orders. Safe to repeat. Requires the `seats:purchase` or `billing:write` scope.
@@ -27,6 +28,10 @@ class PaymentMethod(SyncAPIResource):
             setup_intent_id: The SetupIntent you confirmed with Stripe.js.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -35,7 +40,9 @@ class PaymentMethod(SyncAPIResource):
                 body={"setupIntentId": setup_intent_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             BillingPaymentMethod,
         )
@@ -45,8 +52,9 @@ class PaymentMethod(SyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> None:
-        """Delete the saved card
+        """Delete the saved card.
 
         Removes the saved card. Seats already bought aren't affected. Requires the
         `seats:purchase` or `billing:write` scope.
@@ -56,13 +64,19 @@ class PaymentMethod(SyncAPIResource):
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         self._pipeline.request_empty(
             ApiRequest(
                 "DELETE",
                 "/organizations/{orgId}/billing/payment-method",
                 org_scoped=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             )
         )
 
@@ -72,8 +86,9 @@ class PaymentMethod(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> PaymentMethodPrepare:
-        """Start saving a card
+        """Start saving a card.
 
         Creates a Stripe SetupIntent for a card form in your own page. Confirm it with
         Stripe.js, then finish saving the card. Saving a card never charges it. Requires
@@ -84,6 +99,10 @@ class PaymentMethod(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -96,6 +115,7 @@ class PaymentMethod(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             PaymentMethodPrepare,
@@ -106,8 +126,9 @@ class PaymentMethod(SyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BillingPaymentMethod:
-        """Retrieve the saved card
+        """Retrieve the saved card.
 
         Retrieves the card seat orders charge: its brand, last four digits and expiry.
         Card numbers are never returned. Requires the `seats:purchase` or
@@ -116,6 +137,10 @@ class PaymentMethod(SyncAPIResource):
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -123,7 +148,9 @@ class PaymentMethod(SyncAPIResource):
                 "/organizations/{orgId}/billing/payment-method",
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             BillingPaymentMethod,
         )
@@ -135,8 +162,9 @@ class PaymentMethod(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> PaymentMethodSetup:
-        """Save a card with Checkout
+        """Save a card with Checkout.
 
         Creates a Stripe-hosted page where the buyer saves the card that seat orders
         charge. The card becomes the organization's default. Requires the
@@ -149,6 +177,10 @@ class PaymentMethod(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -162,6 +194,7 @@ class PaymentMethod(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             PaymentMethodSetup,
@@ -175,8 +208,9 @@ class AsyncPaymentMethod(AsyncAPIResource):
         setup_intent_id: str,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BillingPaymentMethod:
-        """Finish saving a card
+        """Finish saving a card.
 
         Makes the card from a confirmed SetupIntent the organization's default for seat
         orders. Safe to repeat. Requires the `seats:purchase` or `billing:write` scope.
@@ -185,6 +219,10 @@ class AsyncPaymentMethod(AsyncAPIResource):
             setup_intent_id: The SetupIntent you confirmed with Stripe.js.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -193,7 +231,9 @@ class AsyncPaymentMethod(AsyncAPIResource):
                 body={"setupIntentId": setup_intent_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             BillingPaymentMethod,
         )
@@ -203,8 +243,9 @@ class AsyncPaymentMethod(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> None:
-        """Delete the saved card
+        """Delete the saved card.
 
         Removes the saved card. Seats already bought aren't affected. Requires the
         `seats:purchase` or `billing:write` scope.
@@ -214,13 +255,19 @@ class AsyncPaymentMethod(AsyncAPIResource):
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         await self._pipeline.request_empty(
             ApiRequest(
                 "DELETE",
                 "/organizations/{orgId}/billing/payment-method",
                 org_scoped=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             )
         )
 
@@ -230,8 +277,9 @@ class AsyncPaymentMethod(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> PaymentMethodPrepare:
-        """Start saving a card
+        """Start saving a card.
 
         Creates a Stripe SetupIntent for a card form in your own page. Confirm it with
         Stripe.js, then finish saving the card. Saving a card never charges it. Requires
@@ -242,6 +290,10 @@ class AsyncPaymentMethod(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -254,6 +306,7 @@ class AsyncPaymentMethod(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             PaymentMethodPrepare,
@@ -264,8 +317,9 @@ class AsyncPaymentMethod(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> BillingPaymentMethod:
-        """Retrieve the saved card
+        """Retrieve the saved card.
 
         Retrieves the card seat orders charge: its brand, last four digits and expiry.
         Card numbers are never returned. Requires the `seats:purchase` or
@@ -274,6 +328,10 @@ class AsyncPaymentMethod(AsyncAPIResource):
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -281,7 +339,9 @@ class AsyncPaymentMethod(AsyncAPIResource):
                 "/organizations/{orgId}/billing/payment-method",
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             BillingPaymentMethod,
         )
@@ -293,8 +353,9 @@ class AsyncPaymentMethod(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> PaymentMethodSetup:
-        """Save a card with Checkout
+        """Save a card with Checkout.
 
         Creates a Stripe-hosted page where the buyer saves the card that seat orders
         charge. The card becomes the organization's default. Requires the
@@ -307,6 +368,10 @@ class AsyncPaymentMethod(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -320,6 +385,7 @@ class AsyncPaymentMethod(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             PaymentMethodSetup,

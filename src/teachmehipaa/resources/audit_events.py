@@ -30,8 +30,9 @@ class AuditEvents(SyncAPIResource):
         until: datetime | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[AuditEvent]:
-        """List all audit events
+        """List all audit events.
 
         Returns a list of the organization's audit events, newest first. Filter by
         `type`, `transition`, `subjectId`, or a `since` and `until` range.
@@ -46,6 +47,10 @@ class AuditEvents(SyncAPIResource):
             until: Inclusive upper bound on `at` (ISO-8601 instant).
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -62,11 +67,12 @@ class AuditEvents(SyncAPIResource):
                 },
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             AuditEventsPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
 
@@ -83,8 +89,9 @@ class AsyncAuditEvents(AsyncAPIResource):
         until: datetime | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[AuditEvent]:
-        """List all audit events
+        """List all audit events.
 
         Returns a list of the organization's audit events, newest first. Filter by
         `type`, `transition`, `subjectId`, or a `since` and `until` range.
@@ -99,6 +106,10 @@ class AsyncAuditEvents(AsyncAPIResource):
             until: Inclusive upper bound on `at` (ISO-8601 instant).
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -115,9 +126,10 @@ class AsyncAuditEvents(AsyncAPIResource):
                 },
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             AuditEventsPage,
             cursor_param="cursor",
-            style="cursor",
         )

@@ -19,12 +19,19 @@ from pydantic import TypeAdapter
 from ._config import ClientConfig
 from ._errors import (
     TeachMeHipaaError,
-    error_from_response,
     is_json,
     unexpected_response_error,
 )
 from ._files import Upload
-from ._models import BaseModel, BinaryResponse, ETagSource, LastResponse, NotModified
+from ._models import (
+    REQUEST_ID_HEADER,
+    BaseModel,
+    BinaryResponse,
+    ETagSource,
+    LastResponse,
+    NotModified,
+    request_id_of,
+)
 from ._sentinel import NOT_GIVEN, NotGiven
 
 QueryValue = str | int | float | bool | datetime | None
@@ -43,6 +50,7 @@ class RequestOptions:
     max_retries: int | NotGiven = NOT_GIVEN
     timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN
     idempotency_key: str | NotGiven = NOT_GIVEN
+    request_id: str | NotGiven = NOT_GIVEN
 
     def __post_init__(self) -> None:
         if not isinstance(self.max_retries, NotGiven) and self.max_retries < 0:
@@ -151,17 +159,19 @@ def build_request(
     headers = {
         "accept": accept,
         "user-agent": config.user_agent,
-        **_given(api_request.headers),
+        **_omit_not_given(api_request.headers),
         **api_request.conditional_headers(),
     }
     if access_token is not None:
         headers["authorization"] = f"Bearer {access_token}"
     if idempotency_key is not None:
         headers["idempotency-key"] = idempotency_key
+    if not isinstance(api_request.options.request_id, NotGiven):
+        headers[REQUEST_ID_HEADER] = api_request.options.request_id
     content = None
     files = None
     if api_request.body is not None:
-        body = _given(api_request.body)
+        body = _omit_not_given(api_request.body)
         if api_request.content_type == "multipart/form-data":
             # httpx sets the content type itself, with the part boundary.
             files = _multipart(body, api_request.binary_parts)
@@ -223,7 +233,7 @@ def _etag_of(source: ETagSource, argument: str) -> str:
     return etag
 
 
-def _given(values: Mapping[str, T | NotGiven]) -> dict[str, T]:
+def _omit_not_given(values: Mapping[str, T | NotGiven]) -> dict[str, T]:
     return {
         name: value for name, value in values.items() if not isinstance(value, NotGiven)
     }
@@ -261,8 +271,6 @@ def _expand_path(template: str, params: Mapping[str, str]) -> str:
 
 
 def _checked(response: httpx.Response) -> httpx.Response:
-    if response.is_error:
-        raise error_from_response(response)
     # Unknown paths answer 200 text/html (a Nuxt page), so check before
     # parsing.
     if not is_json(response):
@@ -324,8 +332,6 @@ def filename_of(response: httpx.Response) -> str | None:
 
 
 def read_binary(response: httpx.Response, api_request: ApiRequest) -> BinaryResponse:
-    if response.is_error:
-        raise error_from_response(response)
     if not is_expected_file(response, api_request):
         raise unexpected_response_error(response)
     return BinaryResponse(
@@ -343,7 +349,7 @@ def read_organization_id(response: httpx.Response) -> str:
             "The access token is not bound to an Organization. Partner-level "
             "tokens cannot call Organization endpoints.",
             status=response.status_code,
-            request_id=response.headers.get("x-request-id"),
+            request_id=request_id_of(response.headers),
             headers=response.headers,
         )
     return organization_id

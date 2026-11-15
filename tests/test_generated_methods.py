@@ -9,7 +9,7 @@ from typing import Any
 import httpx
 import pytest
 
-from teachmehipaa import APIConnectionError, AsyncTeachMeHipaa, SyncPage, TeachMeHipaa
+from teachmehipaa import APIError, AsyncTeachMeHipaa, SyncPage, TeachMeHipaa
 from teachmehipaa.types import (
     AuditEventActorUser,
     AuditEventMemberRemoved,
@@ -29,7 +29,7 @@ from tests.fake_api import (
     FakeAsyncSleep,
     FakeSleep,
     Reply,
-    network_error,
+    problem,
     token_json,
 )
 
@@ -208,27 +208,17 @@ def test_nested_params_are_sent_in_camel_case(api: FakeApi) -> None:
 # --- Retry safety ------------------------------------------------------------
 
 
-def test_a_caller_key_does_not_make_a_delete_retryable(api: FakeApi) -> None:
-    # No generated PATCH or DELETE takes a key, so drive the pipeline the
-    # generated methods use with one that does.
-    from teachmehipaa._core._request import ApiRequest, RequestOptions
-
+def test_a_patch_is_not_retried_after_a_503(api: FakeApi) -> None:
     path = org(f"/webhook-subscriptions/{SUBSCRIPTION_ID}")
-    api.on("DELETE", path, network_error)
-    client = make_client(api)
+    api.on("PATCH", path, problem(503, "unavailable"))
+    api.on("PATCH", path, Reply(json=SUBSCRIPTION_JSON))
 
-    with pytest.raises(APIConnectionError):
-        client.webhook_subscriptions._pipeline.request_empty(
-            ApiRequest(
-                "DELETE",
-                "/organizations/{orgId}/webhook-subscriptions/{id}",
-                path_params={"id": SUBSCRIPTION_ID},
-                org_scoped=True,
-                options=RequestOptions(idempotency_key="delete-1"),
-            )
+    with pytest.raises(APIError):
+        make_client(api).webhook_subscriptions.update(
+            SUBSCRIPTION_ID, if_match=ETAG, enabled=False
         )
 
-    assert len(api.requests_to("DELETE", path)) == 1
+    assert len(api.requests_to("PATCH", path)) == 1
 
 
 # --- Partner methods ------------------------------------------------------

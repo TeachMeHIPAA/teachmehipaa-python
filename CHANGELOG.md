@@ -37,7 +37,8 @@ Generated from the Developer API document release `waggish-wombat`.
   `conflict`, 429 and 5xx, honoring `Retry-After`, only for calls that are
   safe to replay; a generated `Idempotency-Key` per create and custom method,
   reused across retries and overridable per call; `max_retries` and
-  `timeout` per client and per call.
+  `timeout` per client and per call; and a custom `request_id` per call
+  (also on `events.tail` and `wait()`), sent as `x-request-id`.
 - `last_response` on every returned object, with status, headers, request id
   and ETag.
 - `SyncPage` and `AsyncPage`: iterate a list call's page (`for`, or
@@ -51,6 +52,9 @@ Generated from the Developer API document release `waggish-wombat`.
 - `Operation` and `AsyncOperation` with `wait()` and `export_result()` for
   export CSVs. Test delivery and redrive results are typed by `_tag`, with
   `UnknownWebhookDeliveryResult` for tags added later.
+- Union variants type their discriminator as a `Literal` of their tag (such
+  as `event_type: Literal["learner.certified"]`), so type checkers narrow on
+  it once the `Unknown*` fallback, whose tag stays `str`, is ruled out.
 - Enrollment CSV imports from a path, bytes or a binary file, and
   Certificate PDF downloads as a `BinaryResponse` or, with `stream=True`, a
   `BinaryStream` / `AsyncBinaryStream`.
@@ -62,7 +66,8 @@ Generated from the Developer API document release `waggish-wombat`.
 - Partner apps: `teachmehipaa.oauth` (PKCE pair, state, consent URL, code
   exchange) and `PartnerGrantTokenProvider` / `AsyncPartnerGrantTokenProvider`,
   which save every rotated Refresh token to your token store before use and
-  never retry a Refresh token exchange.
+  never retry a Refresh token exchange. A client refuses a provider bound to
+  another Environment or base URL.
 - `events.tail` to read the Event log from a saved position, once or
   following new Events, stoppable with a `threading.Event` or
   `asyncio.Event`.

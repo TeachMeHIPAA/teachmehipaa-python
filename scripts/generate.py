@@ -102,8 +102,9 @@ def constant(name: str) -> str:
 def docstring(paragraphs: Iterable[str | None], indent: int) -> list[str]:
     """A triple-quoted docstring wrapped to the line length, as lines.
 
-    Each line of a paragraph wraps on its own, so lists stay lists; a list
-    item or an `Args:` entry continues one level deeper than it starts.
+    The first paragraph is the summary and always ends a sentence. Each
+    line of a paragraph wraps on its own, so lists stay lists; a list item
+    or an `Args:` entry continues one level deeper than it starts.
     """
     width = LINE_LENGTH - indent
     texts = [
@@ -111,6 +112,10 @@ def docstring(paragraphs: Iterable[str | None], indent: int) -> list[str]:
     ]
     if not texts:
         return []
+    # PEP 257: the summary is a sentence. The IR's method summaries are
+    # titles, such as "List all learners".
+    if not texts[0].rstrip().endswith((".", "?", "!")):
+        texts[0] = texts[0].rstrip() + "."
     one_line = f'"""{texts[0]}"""'
     if len(texts) == 1 and "\n" not in texts[0] and len(one_line) <= width:
         return [" " * indent + one_line]
@@ -175,6 +180,37 @@ class Ir:
         if union["name"] == self.event_envelope:
             return self.unknown_event
         return f"Unknown{union['name']}"
+
+    def tagged_fields(self) -> dict[str, tuple[str, list[str]]]:
+        """Variant model -> (its discriminator's wire name, the tags that
+        select it), for every property union. The fallback isn't a key: its
+        discriminator stays an open string."""
+        tagged: dict[str, tuple[str, list[str]]] = {}
+        for union in self.types.values():
+            discriminator = union.get("discriminator")
+            if union["kind"] != "union" or discriminator["kind"] != "property":
+                continue
+            wire_name = discriminator["property"]
+            for tag, variant in discriminator["mapping"].items():
+                field_ = next(
+                    (
+                        f
+                        for f in self.types[variant]["fields"]
+                        if f["name"] == wire_name
+                    ),
+                    None,
+                )
+                if field_ is None or (
+                    field_["type"] != {"kind": "primitive", "type": "string"}
+                    or not field_["required"]
+                    or field_["nullable"]
+                ):
+                    raise GeneratorError(f"{variant}.{wire_name} is not a required tag")
+                name, tags = tagged.setdefault(variant, (wire_name, []))
+                if name != wire_name:
+                    raise GeneratorError(f"{variant} is tagged by two properties")
+                tags.append(tag)
+        return tagged
 
     def page_types(self) -> dict[str, Json]:
         """Page model name -> its item type, from every page response."""
@@ -273,9 +309,15 @@ def field_name(wire_name: str) -> str:
     return name
 
 
-def model_field(field_: Json) -> list[str]:
+def tag_literal(tags: Iterable[str]) -> str:
+    return f"Literal[{', '.join(json.dumps(tag) for tag in tags)}]"
+
+
+def model_field(field_: Json, tags: list[str] | None = None) -> list[str]:
+    """`tags`, when given, are the only values a variant's discriminator
+    takes, so it is typed as their Literal for type checkers to narrow on."""
     name = field_name(field_["name"])
-    annotation = model_type(field_["type"])
+    annotation = model_type(field_["type"]) if tags is None else tag_literal(tags)
     if field_["nullable"] and annotation != "Any":
         annotation += " | None"
     arguments = []
@@ -294,12 +336,19 @@ def model_field(field_: Json) -> list[str]:
     return [line, *docstring([field_["description"]], 4)]
 
 
-def render_object(ir_type: Json, base: str = "BaseModel") -> list[str]:
+def render_object(
+    ir_type: Json,
+    base: str = "BaseModel",
+    tagged: tuple[str, list[str]] | None = None,
+) -> list[str]:
     lines = [f"class {ir_type['name']}({base}):"]
     lines += docstring([ir_type["description"]], 4)
     if base == "BaseModel":
         for field_ in ir_type["fields"]:
-            lines += model_field(field_)
+            tags = None
+            if tagged is not None and field_["name"] == tagged[0]:
+                tags = tagged[1]
+            lines += model_field(field_, tags)
     if len(lines) == 1:
         lines.append("    pass")
     return lines
@@ -370,7 +419,7 @@ def render_union(ir: Ir, union: Json) -> list[str]:
             f"({json.dumps(wire)}, {json.dumps(variant)}), "
             for wire, variant in markers
         )
-        select = f"by_presence(({pairs}), {python_literal(fallback)})"
+        select = f"by_presence(({pairs}), {fallback!r})"
     variants = " | ".join(f"Annotated[{model}, Tag({tag})]" for model, tag in members)
     lines = [
         f"{union['name']}: TypeAlias = Annotated[",
@@ -383,6 +432,7 @@ def render_union(ir: Ir, union: Json) -> list[str]:
 
 def render_models(ir: Ir) -> tuple[str, list[str]]:
     pages = ir.page_types()
+    tagged = ir.tagged_fields()
     blocks: dict[str, list[str]] = {}
     deps: dict[str, set[str]] = {}
     for name, ir_type in ir.types.items():
@@ -403,7 +453,7 @@ def render_models(ir: Ir) -> tuple[str, list[str]]:
             blocks[name] = render_page(ir_type, pages[name])
             deps[name] = set(refs(pages[name]))
         else:
-            blocks[name] = render_object(ir_type)
+            blocks[name] = render_object(ir_type, tagged=tagged.get(name))
     order = topological(blocks, deps)
     header = [
         "from datetime import datetime",
@@ -504,6 +554,7 @@ def param_types(ir: Ir) -> tuple[list[str], dict[str, set[str]]]:
 
 def render_params(ir: Ir) -> tuple[str, list[str]]:
     names, omitted = param_types(ir)
+    tagged = ir.tagged_fields()
     blocks: dict[str, list[str]] = {}
     deps: dict[str, set[str]] = {}
     enums: set[str] = set()
@@ -531,7 +582,11 @@ def render_params(ir: Ir) -> tuple[str, list[str]]:
             key = snake(field_["name"])
             if keyword.iskeyword(key) or camel(key) != field_["name"]:
                 raise GeneratorError(f"{name}.{field_['name']} has no snake_case key")
-            annotation = param_type(ir, field_["type"])
+            wire_name, tags = tagged.get(name, (None, []))
+            if field_["name"] == wire_name:
+                annotation = tag_literal(tags)
+            else:
+                annotation = param_type(ir, field_["type"])
             enums.update(n for n in refs(field_["type"]) if ir.kind(n) == "enum")
             if field_["nullable"]:
                 annotation += " | None"
@@ -545,7 +600,7 @@ def render_params(ir: Ir) -> tuple[str, list[str]]:
     header = [
         "from collections.abc import Sequence",
         "from datetime import datetime",
-        "from typing import TypeAlias",
+        "from typing import Literal, TypeAlias",
         "",
         "from typing_extensions import Required, TypedDict",
         "",
@@ -598,9 +653,20 @@ class MethodPlan:
     call: str
     request: list[str]
     response_type: str | None
-    pagination: Json | None
+    cursor_param: str | None
+    position_field: str | None
     docs: list[str | None]
     overloads: list[Overload] = field(default_factory=list)
+
+
+@dataclass
+class Arguments:
+    """A method's parameters and the `ApiRequest` arguments that send them,
+    collected by the planning steps in signature order."""
+
+    positional: list[Argument] = field(default_factory=list)
+    keywords: list[Argument] = field(default_factory=list)
+    request: list[str] = field(default_factory=list)
 
 
 def response_plan(ir: Ir, method: Json) -> tuple[str, str, str | None]:
@@ -635,7 +701,8 @@ def response_plan(ir: Ir, method: Json) -> tuple[str, str, str | None]:
     raise GeneratorError(f"no rule for {kind} responses")
 
 
-def plan_method(ir: Ir, method: Json) -> MethodPlan:
+def request_path(method: Json) -> str:
+    """The path template the method sends, with a custom method's verb."""
     operation = method["operationId"]
     template = method["path"]["template"]
     if method["orgScoped"] != ("{orgId}" in template):
@@ -644,112 +711,136 @@ def plan_method(ir: Ir, method: Json) -> MethodPlan:
         raise GeneratorError(f"{operation}: header parameters have no rule")
     if any(p["name"] == "orgId" for p in method["pathParams"]):
         raise GeneratorError(f"{operation}: orgId must come from the binding")
-    path = template
-    if method["path"]["customVerb"] is not None:
-        path += ":" + method["path"]["customVerb"]
+    if method["path"]["customVerb"] is None:
+        return str(template)
+    return f"{template}:{method['path']['customVerb']}"
 
-    positional = [
-        Argument(identifier(p["name"]), "str", True, p["description"])
-        for p in method["pathParams"]
-    ]
+
+def plan_path_params(method: Json, arguments: Arguments) -> None:
     for p in method["pathParams"]:
         if p["type"] != {"kind": "primitive", "type": "string"} or not p["required"]:
-            raise GeneratorError(f"{operation}: path parameter {p['name']}")
-    keywords: list[Argument] = []
-    request = [json.dumps(method["httpMethod"]), json.dumps(path)]
-    if positional:
+            raise GeneratorError(f"{method['operationId']}: path parameter {p['name']}")
+        arguments.positional.append(
+            Argument(identifier(p["name"]), "str", True, p["description"])
+        )
+    if method["pathParams"]:
         params = ", ".join(
             f"{json.dumps(p['name'])}: {identifier(p['name'])}"
             for p in method["pathParams"]
         )
-        request.append(f"path_params={{{params}}}")
+        arguments.request.append(f"path_params={{{params}}}")
 
-    if method["ifMatch"] == "required":
-        keywords.append(Argument("if_match", "ETagSource", True, IF_MATCH_DOC))
 
+def plan_body(ir: Ir, method: Json, arguments: Arguments) -> None:
     plan = body_plan(ir, method)
-    if plan is not None:
-        entries = []
-        for field_ in plan.fields:
-            name = identifier(field_["name"])
-            pins = plan.pinned.get(field_["name"])
-            type_ref = plan.narrowed.get(field_["name"], field_["type"])
-            keywords.append(
-                Argument(
-                    name,
-                    param_type(ir, type_ref),
-                    field_["required"],
-                    field_["description"],
-                    nullable=field_["nullable"],
-                )
+    if plan is None:
+        return
+    entries = []
+    for field_ in plan.fields:
+        name = identifier(field_["name"])
+        pins = plan.pinned.get(field_["name"])
+        type_ref = plan.narrowed.get(field_["name"], field_["type"])
+        arguments.keywords.append(
+            Argument(
+                name,
+                param_type(ir, type_ref),
+                field_["required"],
+                field_["description"],
+                nullable=field_["nullable"],
             )
-            if pins is None:
-                value = name
-            else:
-                fixed = ", ".join(
-                    f"{json.dumps(snake(k))}: {python_literal(v)}"
-                    for k, v in pins.items()
-                )
-                value = f"with_fixed({name}, {{{fixed}}})"
-            entries.append(f"{json.dumps(field_['name'])}: {value}")
-        request.append(f"body={{{', '.join(entries)}}}")
-        content_type = method["requestBody"]["contentType"]
-        if content_type != "application/json":
-            request.append(f"content_type={json.dumps(content_type)}")
-        binary_parts = method["requestBody"]["binaryParts"]
-        if binary_parts:
-            parts = ", ".join(
-                f"{json.dumps(p['name'])}: {json.dumps(p['contentType'])}"
-                for p in binary_parts
-            )
-            request.append(f"binary_parts={{{parts}}}")
+        )
+        if pins is None:
+            value = name
+        else:
+            fixed = ", ".join(f"{json.dumps(snake(k))}: {v!r}" for k, v in pins.items())
+            value = f"with_fixed({name}, {{{fixed}}})"
+        entries.append(f"{json.dumps(field_['name'])}: {value}")
+    arguments.request.append(f"body={{{', '.join(entries)}}}")
+    content_type = method["requestBody"]["contentType"]
+    if content_type != "application/json":
+        arguments.request.append(f"content_type={json.dumps(content_type)}")
+    binary_parts = method["requestBody"]["binaryParts"]
+    if binary_parts:
+        parts = ", ".join(
+            f"{json.dumps(p['name'])}: {json.dumps(p['contentType'])}"
+            for p in binary_parts
+        )
+        arguments.request.append(f"binary_parts={{{parts}}}")
 
-    if method["queryParams"]:
-        entries = []
-        for p in method["queryParams"]:
-            name = identifier(p["name"])
-            annotation = param_type(ir, p["type"])
-            keywords.append(Argument(name, annotation, p["required"], p["description"]))
-            entries.append(f"{json.dumps(p['name'])}: {name}")
-        request.append(f"query={{{', '.join(entries)}}}")
 
+def plan_query(ir: Ir, method: Json, arguments: Arguments) -> None:
+    if not method["queryParams"]:
+        return
+    entries = []
+    for p in method["queryParams"]:
+        name = identifier(p["name"])
+        annotation = param_type(ir, p["type"])
+        arguments.keywords.append(
+            Argument(name, annotation, p["required"], p["description"])
+        )
+        entries.append(f"{json.dumps(p['name'])}: {name}")
+    arguments.request.append(f"query={{{', '.join(entries)}}}")
+
+
+def plan_conditionals(method: Json, arguments: Arguments) -> None:
+    """If-Match, If-None-Match and a binary download's `stream`. A required
+    `if_match` is planned earlier: it leads the keywords."""
     if method["ifMatch"] != "none":
         if method["ifMatch"] == "optional":
-            keywords.append(Argument("if_match", "ETagSource", False, IF_MATCH_DOC))
-        request.append("if_match=if_match")
+            arguments.keywords.append(
+                Argument("if_match", "ETagSource", False, IF_MATCH_DOC)
+            )
+        arguments.request.append("if_match=if_match")
     if method["ifNoneMatch"] != "none":
         required = method["ifNoneMatch"] == "required"
-        keywords.append(
+        arguments.keywords.append(
             Argument("if_none_match", "ETagSource", required, IF_NONE_MATCH_DOC)
         )
-        request.append("if_none_match=if_none_match")
+        arguments.request.append("if_none_match=if_none_match")
     if method["response"]["kind"] == "binary":
         content_type = method["response"]["contentType"]
-        request.append(f"binary_content_type={json.dumps(content_type)}")
-        keywords.append(Argument("stream", "bool", False, STREAM_DOC, default="False"))
+        arguments.request.append(f"binary_content_type={json.dumps(content_type)}")
+        arguments.keywords.append(
+            Argument("stream", "bool", False, STREAM_DOC, default="False")
+        )
 
+
+def plan_request_flags(method: Json, arguments: Arguments) -> None:
     if method["orgScoped"]:
-        request.append("org_scoped=True")
+        arguments.request.append("org_scoped=True")
     if method["security"]["kind"] == "none":
-        request.append("authenticated=False")
+        arguments.request.append("authenticated=False")
     if method["retrySafe"]:
-        request.append("retry_safe=True")
+        arguments.request.append("retry_safe=True")
+
+
+def plan_options(method: Json, arguments: Arguments) -> None:
+    """The per-call overrides every method takes, plus an idempotency key
+    where the IR marks one."""
     options = ["max_retries=max_retries", "timeout=timeout"]
     if method["idempotencyKey"] != "none":
         if method["idempotencyKey"] == "required":
-            request.append("idempotency_key_required=True")
-        keywords.append(Argument("idempotency_key", "str", False, IDEMPOTENCY_DOC))
+            arguments.request.append("idempotency_key_required=True")
+        arguments.keywords.append(
+            Argument("idempotency_key", "str", False, IDEMPOTENCY_DOC)
+        )
         options.append("idempotency_key=idempotency_key")
-    keywords.append(Argument("max_retries", "int", False, MAX_RETRIES_DOC))
-    keywords.append(Argument("timeout", "float | httpx.Timeout", False, TIMEOUT_DOC))
-    request.append(f"options=RequestOptions({', '.join(options)})")
+    arguments.keywords.append(Argument("max_retries", "int", False, MAX_RETRIES_DOC))
+    arguments.keywords.append(
+        Argument("timeout", "float | httpx.Timeout", False, TIMEOUT_DOC)
+    )
+    arguments.keywords.append(Argument("request_id", "str", False, REQUEST_ID_DOC))
+    options.append("request_id=request_id")
+    arguments.request.append(f"options=RequestOptions({', '.join(options)})")
 
-    names = [a.name for a in positional + keywords]
-    if len(set(names)) != len(names):
-        raise GeneratorError(f"{operation}: argument names collide")
 
+def plan_return(ir: Ir, method: Json) -> tuple[str, str, str | None, list[Overload]]:
+    """(return annotation, pipeline method, response type argument,
+    overloads), with conditional reads and downloads typed by their
+    arguments."""
+    operation = method["operationId"]
     returns, call, response_type = response_plan(ir, method)
-    overloads = []
+    overloads: list[Overload] = []
     if method["ifNoneMatch"] != "none":
         if call != "request":
             raise GeneratorError(f"{operation}: If-None-Match on a non-model read")
@@ -773,20 +864,71 @@ def plan_method(ir: Ir, method: Json) -> MethodPlan:
             Overload({"stream": "stream: bool"}, f"{returns} | {stream}"),
         ]
         returns = f"{returns} | {stream}"
-    pagination = None
-    if call == "request_page":
-        pagination = method["pagination"]
-        if pagination["style"] not in ("cursor", "after"):
-            raise GeneratorError(f"{operation}: no rule for {pagination['style']}")
+    return returns, call, response_type, overloads
+
+
+def position_field(ir: Ir, method: Json) -> str | None:
+    """The item attribute an `after` list's next page starts after: the
+    item's own id, `<itemType>Id`, which every variant must carry."""
+    pagination = method["pagination"]
+    operation = method["operationId"]
+    if pagination["style"] == "cursor":
+        return None
+    if pagination["style"] != "after":
+        raise GeneratorError(f"{operation}: no rule for {pagination['style']}")
+    item = pagination["itemType"]
+    if item["kind"] != "ref":
+        raise GeneratorError(f"{operation}: an `after` list of non-models")
+    name = item["name"]
+    wire_name = f"{name[:1].lower()}{name[1:]}Id"
+    item_type = ir.types[name]
+    models = (
+        variants(ir, item_type, unknown=True)
+        if item_type["kind"] == "union"
+        else [name]
+    )
+    for model in models:
+        id_field = next(
+            (f for f in ir.types[model]["fields"] if f["name"] == wire_name), None
+        )
+        if id_field is None or (
+            id_field["type"] != {"kind": "primitive", "type": "string"}
+            or not id_field["required"]
+        ):
+            raise GeneratorError(f"{operation}: {model} has no {wire_name} to page by")
+    return field_name(wire_name)
+
+
+def plan_method(ir: Ir, method: Json) -> MethodPlan:
+    arguments = Arguments(
+        request=[json.dumps(method["httpMethod"]), json.dumps(request_path(method))]
+    )
+    plan_path_params(method, arguments)
+    if method["ifMatch"] == "required":
+        arguments.keywords.append(
+            Argument("if_match", "ETagSource", True, IF_MATCH_DOC)
+        )
+    plan_body(ir, method, arguments)
+    plan_query(ir, method, arguments)
+    plan_conditionals(method, arguments)
+    plan_request_flags(method, arguments)
+    plan_options(method, arguments)
+    names = [a.name for a in arguments.positional + arguments.keywords]
+    if len(set(names)) != len(names):
+        raise GeneratorError(f"{method['operationId']}: argument names collide")
+
+    returns, call, response_type, overloads = plan_return(ir, method)
+    paged = call == "request_page"
     return MethodPlan(
         name=identifier(method["name"]),
-        positional=positional,
-        keywords=keywords,
+        positional=arguments.positional,
+        keywords=arguments.keywords,
         returns=returns,
         call=call,
-        request=request,
+        request=arguments.request,
         response_type=response_type,
-        pagination=pagination,
+        cursor_param=method["pagination"]["cursorParam"] if paged else None,
+        position_field=position_field(ir, method) if paged else None,
         docs=[method["summary"], method["description"], RETURN_DOCS.get(call)],
         overloads=overloads,
     )
@@ -811,6 +953,12 @@ IDEMPOTENCY_DOC = (
 )
 MAX_RETRIES_DOC = "Overrides the client's `max_retries` for this call."
 TIMEOUT_DOC = "Overrides the client's `timeout` for this call, in seconds."
+REQUEST_ID_DOC = (
+    "Sent as `x-request-id` on every attempt, so this call can be found in "
+    "your logs and TeachMeHIPAA's. The API echoes it on `last_response` and "
+    "on errors if it matches `^[A-Za-z0-9._-]{1,128}$`, and replaces it "
+    "otherwise."
+)
 RETURN_DOCS = {
     "request_empty": "Returns `None`: the API answers 204 No Content.",
     "request_write_result": (
@@ -824,8 +972,19 @@ RETURN_DOCS = {
 }
 
 
-def python_literal(value: Json) -> str:
-    return repr(value)
+# Classes that differ between the clients, written as these placeholders
+# while planning and filled in per client.
+CLIENT_CLASSES = {
+    "{page}": ("SyncPage", "AsyncPage"),
+    "{stream}": ("BinaryStream", "AsyncBinaryStream"),
+    "{operation}": ("Operation", "AsyncOperation"),
+}
+
+
+def for_client(text: str, asynchronous: bool) -> str:
+    for placeholder, (sync_name, async_name) in CLIENT_CLASSES.items():
+        text = text.replace(placeholder, async_name if asynchronous else sync_name)
+    return text
 
 
 def render_signature(
@@ -834,13 +993,7 @@ def render_signature(
     returns: str,
     narrowed: Mapping[str, str],
 ) -> list[str]:
-    placeholders = {
-        "{page}": "AsyncPage" if asynchronous else "SyncPage",
-        "{stream}": "AsyncBinaryStream" if asynchronous else "BinaryStream",
-        "{operation}": "AsyncOperation" if asynchronous else "Operation",
-    }
-    for placeholder, name in placeholders.items():
-        returns = returns.replace(placeholder, name)
+    returns = for_client(returns, asynchronous)
     parameters = ["self"]
     parameters += [a.signature() for a in plan.positional]
     if plan.positional:
@@ -869,11 +1022,11 @@ def render_method(plan: MethodPlan, asynchronous: bool) -> list[str]:
     lines += docstring([*plan.docs, args if described else None], 8)
     arguments = [f"ApiRequest({', '.join(plan.request)})"]
     if plan.response_type is not None:
-        operation = "AsyncOperation" if asynchronous else "Operation"
-        arguments.append(plan.response_type.replace("{operation}", operation))
-    if plan.pagination is not None:
-        arguments.append(f"cursor_param={json.dumps(plan.pagination['cursorParam'])}")
-        arguments.append(f"style={json.dumps(plan.pagination['style'])}")
+        arguments.append(for_client(plan.response_type, asynchronous))
+    if plan.cursor_param is not None:
+        arguments.append(f"cursor_param={json.dumps(plan.cursor_param)}")
+        if plan.position_field is not None:
+            arguments.append(f"position_field={json.dumps(plan.position_field)}")
     awaiting = "await " if asynchronous else ""
     if plan.call == "request_binary":
         # The overloads tie the return type to `stream`.

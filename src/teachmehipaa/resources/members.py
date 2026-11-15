@@ -21,8 +21,9 @@ class Members(SyncAPIResource):
         role: ListMembersRole | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[MemberListItem]:
-        """List all members
+        """List all members.
 
         Returns a list of the organization's members, its admins and learners. Pass
         `role=admin` to list only admins.
@@ -40,6 +41,10 @@ class Members(SyncAPIResource):
             role: Only admins (paginated).
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -53,11 +58,12 @@ class Members(SyncAPIResource):
                 },
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             MembersPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     def retrieve(
@@ -67,8 +73,9 @@ class Members(SyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Member:
-        """Retrieve a member
+        """Retrieve a member.
 
         Retrieves a member of the organization.
 
@@ -76,6 +83,10 @@ class Members(SyncAPIResource):
             subject_id: The member's id.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -84,7 +95,9 @@ class Members(SyncAPIResource):
                 path_params={"subjectId": subject_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Member,
         )
@@ -100,8 +113,9 @@ class AsyncMembers(AsyncAPIResource):
         role: ListMembersRole | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[MemberListItem]:
-        """List all members
+        """List all members.
 
         Returns a list of the organization's members, its admins and learners. Pass
         `role=admin` to list only admins.
@@ -119,6 +133,10 @@ class AsyncMembers(AsyncAPIResource):
             role: Only admins (paginated).
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -132,11 +150,12 @@ class AsyncMembers(AsyncAPIResource):
                 },
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             MembersPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     async def retrieve(
@@ -146,8 +165,9 @@ class AsyncMembers(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Member:
-        """Retrieve a member
+        """Retrieve a member.
 
         Retrieves a member of the organization.
 
@@ -155,6 +175,10 @@ class AsyncMembers(AsyncAPIResource):
             subject_id: The member's id.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -163,7 +187,9 @@ class AsyncMembers(AsyncAPIResource):
                 path_params={"subjectId": subject_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Member,
         )

@@ -23,6 +23,10 @@ from ._core._config import (
     Environment,
     make_config,
 )
+from ._core._partner_grant import (
+    AsyncPartnerGrantTokenProvider,
+    PartnerGrantTokenProvider,
+)
 from ._core._pipeline import AsyncPipeline, SyncPipeline
 from ._core._retry import AsyncSender, SyncSender
 from ._webhooks import Webhook
@@ -31,7 +35,7 @@ from .resources._root import AsyncResources, SyncResources
 ProviderT = TypeVar("ProviderT", TokenProvider, AsyncTokenProvider)
 
 
-def _auth(
+def _credentials_or_provider(
     client_id: str | None,
     client_secret: str | None,
     token_provider: ProviderT | None,
@@ -59,6 +63,21 @@ def _auth(
             "provider)"
         )
     return token_provider
+
+
+def _check_same_base_url(tokens: object, config: ClientConfig) -> None:
+    # A Grant's Refresh token works only in its own Environment, and a
+    # provider that refreshed against another one would hand the client
+    # tokens its API refuses.
+    if (
+        isinstance(tokens, PartnerGrantTokenProvider | AsyncPartnerGrantTokenProvider)
+        and tokens.base_url != config.base_url
+    ):
+        raise ValueError(
+            f"token_provider exchanges Refresh tokens at {tokens.base_url}, but "
+            f"the client calls {config.base_url}; give both the same "
+            "environment and base_url"
+        )
 
 
 class _ConfigView:
@@ -118,7 +137,9 @@ class TeachMeHipaa(_ConfigView, SyncResources):
         clock: Callable[[], float] | None = None,
         sleep: Callable[[float], None] | None = None,
     ) -> None:
-        auth = _auth(client_id, client_secret, token_provider, scopes)
+        auth = _credentials_or_provider(
+            client_id, client_secret, token_provider, scopes
+        )
         self._config = make_config(
             environment=environment,
             base_url=base_url,
@@ -129,6 +150,7 @@ class TeachMeHipaa(_ConfigView, SyncResources):
             app_info=app_info,
             clock=clock,
         )
+        _check_same_base_url(token_provider, self._config)
         self._http_client = http_client or httpx.Client(timeout=self._config.timeout)
         sender = SyncSender(self._http_client, sleep or time.sleep)
         tokens = (
@@ -178,7 +200,9 @@ class AsyncTeachMeHipaa(_ConfigView, AsyncResources):
         clock: Callable[[], float] | None = None,
         sleep: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
-        auth = _auth(client_id, client_secret, token_provider, scopes)
+        auth = _credentials_or_provider(
+            client_id, client_secret, token_provider, scopes
+        )
         self._config = make_config(
             environment=environment,
             base_url=base_url,
@@ -189,6 +213,7 @@ class AsyncTeachMeHipaa(_ConfigView, AsyncResources):
             app_info=app_info,
             clock=clock,
         )
+        _check_same_base_url(token_provider, self._config)
         self._http_client = http_client or httpx.AsyncClient(
             timeout=self._config.timeout
         )

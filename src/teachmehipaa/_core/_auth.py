@@ -13,7 +13,7 @@ from urllib.parse import quote_plus, urlencode
 
 import httpx
 
-from ._config import ClientConfig
+from ._config import TOKEN_PATH, ClientConfig
 from ._errors import is_json, oauth_error_from_response, unexpected_response_error
 from ._retry import AsyncSender, RetryPolicy, SyncSender
 
@@ -46,12 +46,27 @@ class AsyncTokenProvider(Protocol):
         `access_token()` mints afresh. A token minted since is kept."""
 
 
+def require_text(value: str, name: str) -> str:
+    if not isinstance(value, str) or not value.strip():
+        raise ValueError(f"{name} must be a non-empty string")
+    return value
+
+
 @dataclass(frozen=True)
 class ClientCredentials:
     """An API client's or a Partner app's id and secret."""
 
     client_id: str
     client_secret: str = field(repr=False)
+
+    @classmethod
+    def checked(cls, client_id: str, client_secret: str) -> ClientCredentials:
+        """A Partner app's credentials, refusing empty values before any
+        exchange is attempted."""
+        return cls(
+            require_text(client_id, "client_id"),
+            require_text(client_secret, "client_secret"),
+        )
 
     def token_request(
         self,
@@ -81,7 +96,7 @@ class ClientCredentials:
         if config.scopes is not None:
             form["scope"] = " ".join(config.scopes)
         return self.token_request(
-            f"{config.base_url}/auth/token",
+            config.base_url + TOKEN_PATH,
             form,
             user_agent=config.user_agent,
             timeout=config.timeout,
@@ -175,19 +190,13 @@ class AsyncClientCredentialsTokenProvider:
         return self._credentials.client_credentials_request(self._config)
 
 
-def _require_access_token(access_token: str) -> str:
-    if not isinstance(access_token, str) or not access_token.strip():
-        raise ValueError("StaticTokenProvider needs a non-empty Access token")
-    return access_token
-
-
 class StaticTokenProvider:
     """Sends an Access token you obtained yourself, as is. It is never
     renewed: once it expires or is revoked, calls raise
     `AuthenticationError`."""
 
     def __init__(self, access_token: str) -> None:
-        self._access_token = _require_access_token(access_token)
+        self._access_token = require_text(access_token, "access_token")
 
     def __repr__(self) -> str:
         return "StaticTokenProvider(...)"
@@ -203,7 +212,7 @@ class AsyncStaticTokenProvider:
     """The asyncio twin of `StaticTokenProvider`."""
 
     def __init__(self, access_token: str) -> None:
-        self._access_token = _require_access_token(access_token)
+        self._access_token = require_text(access_token, "access_token")
 
     def __repr__(self) -> str:
         return "AsyncStaticTokenProvider(...)"

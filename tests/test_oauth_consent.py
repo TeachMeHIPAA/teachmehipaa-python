@@ -120,12 +120,16 @@ EXCHANGE: dict[str, Any] = {
 
 def test_the_code_exchange_returns_the_grant_tokens() -> None:
     api = FakeApi()
-    api.on("POST", "/auth/token", grant_token_reply("jwt-org", REFRESH_TOKEN_1, 900))
+    api.on(
+        "POST",
+        "/auth/token",
+        grant_token_reply("access-token-org", REFRESH_TOKEN_1, 900),
+    )
 
     grant = oauth.exchange_code(**EXCHANGE, http_client=api.sync_client())
 
     assert grant == oauth.GrantTokens(
-        access_token="jwt-org",
+        access_token="access-token-org",
         refresh_token=REFRESH_TOKEN_1,
         expires_in=900,
         scopes=("learners:read", "learners:write"),
@@ -144,19 +148,21 @@ def test_the_code_exchange_returns_the_grant_tokens() -> None:
 
 def test_grant_tokens_keep_their_secrets_out_of_repr() -> None:
     grant = oauth.GrantTokens(
-        access_token="jwt-org",
+        access_token="access-token-org",
         refresh_token=REFRESH_TOKEN_1,
         expires_in=900,
         scopes=(),
     )
 
-    assert "jwt-org" not in repr(grant)
+    assert "access-token-org" not in repr(grant)
     assert REFRESH_TOKEN_1 not in repr(grant)
 
 
 async def test_the_async_code_exchange_returns_the_grant_tokens() -> None:
     api = FakeApi()
-    api.on("POST", "/auth/token", grant_token_reply("jwt-org", REFRESH_TOKEN_1))
+    api.on(
+        "POST", "/auth/token", grant_token_reply("access-token-org", REFRESH_TOKEN_1)
+    )
 
     grant = await oauth.async_exchange_code(**EXCHANGE, http_client=api.async_client())
 
@@ -169,7 +175,9 @@ async def test_the_async_code_exchange_returns_the_grant_tokens() -> None:
 
 def test_the_code_exchange_goes_to_the_sandbox_token_endpoint_when_asked() -> None:
     api = FakeApi(SANDBOX_BASE)
-    api.on("POST", "/auth/token", grant_token_reply("jwt-org", REFRESH_TOKEN_1))
+    api.on(
+        "POST", "/auth/token", grant_token_reply("access-token-org", REFRESH_TOKEN_1)
+    )
 
     oauth.exchange_code(
         **EXCHANGE, environment="sandbox", http_client=api.sync_client()
@@ -237,7 +245,11 @@ def test_a_token_response_without_a_refresh_token_raises_an_api_error() -> None:
         "POST",
         "/auth/token",
         Reply(
-            json={"access_token": "jwt-org", "token_type": "Bearer", "expires_in": 900}
+            json={
+                "access_token": "access-token-org",
+                "token_type": "Bearer",
+                "expires_in": 900,
+            }
         ),
     )
 

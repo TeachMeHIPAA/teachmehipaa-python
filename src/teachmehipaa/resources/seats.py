@@ -16,8 +16,9 @@ class Seats(SyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatsInventory:
-        """Retrieve the seat inventory
+        """Retrieve the seat inventory.
 
         Retrieves how many seats the organization has, how many are assigned and how
         many are available for new invites. Requires the `enrollments:read` scope.
@@ -25,6 +26,10 @@ class Seats(SyncAPIResource):
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -32,7 +37,9 @@ class Seats(SyncAPIResource):
                 "/organizations/{orgId}/seats",
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             SeatsInventory,
         )
@@ -44,8 +51,9 @@ class AsyncSeats(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatsInventory:
-        """Retrieve the seat inventory
+        """Retrieve the seat inventory.
 
         Retrieves how many seats the organization has, how many are assigned and how
         many are available for new invites. Requires the `enrollments:read` scope.
@@ -53,6 +61,10 @@ class AsyncSeats(AsyncAPIResource):
         Args:
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -60,7 +72,9 @@ class AsyncSeats(AsyncAPIResource):
                 "/organizations/{orgId}/seats",
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             SeatsInventory,
         )

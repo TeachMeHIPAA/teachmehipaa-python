@@ -10,7 +10,7 @@ from typing import Any
 
 import pytest
 
-from teachmehipaa import AsyncTeachMeHipaa, TeachMeHipaa
+from teachmehipaa import NOT_GIVEN, AsyncTeachMeHipaa, TeachMeHipaa
 from teachmehipaa._core._resource import AsyncAPIResource, SyncAPIResource
 from tests.fake_api import CLIENT_ID, CLIENT_SECRET
 
@@ -90,6 +90,13 @@ EXPECTED_NAMES = sorted(name for names in EXPECTED_METHODS.values() for name in 
 
 def load(name: str) -> Any:
     return json.loads((OPENAPI / name).read_text())
+
+
+def ir_methods() -> Iterator[tuple[str, Any]]:
+    """(operationId, IR method) for every IR method."""
+    for resource in load("sdk-ir.json")["resources"]:
+        for method in resource["methods"]:
+            yield method["operationId"], method
 
 
 def ir_method_names() -> Iterator[tuple[str, str, str]]:
@@ -228,4 +235,42 @@ def test_path_params_are_positional_only_and_the_rest_keyword_only() -> None:
         ("course_id", "KEYWORD_ONLY"),
         ("max_retries", "KEYWORD_ONLY"),
         ("timeout", "KEYWORD_ONLY"),
+        ("request_id", "KEYWORD_ONLY"),
     ]
+
+
+@pytest.mark.parametrize("client", list(make_clients()), ids=["sync", "async"])
+def test_no_method_the_ir_marks_unsafe_to_retry_takes_an_idempotency_key(
+    client: object,
+) -> None:
+    # The API ignores Idempotency-Key on PATCH and DELETE, so offering one
+    # would promise a safety the call doesn't have.
+    unsafe = [
+        (operation_id, method)
+        for operation_id, method in ir_methods()
+        if not method["retrySafe"]
+    ]
+
+    assert {method["httpMethod"] for _, method in unsafe} == {"PATCH", "DELETE"}
+    for operation_id, _ in unsafe:
+        for name in EXPECTED_METHODS[operation_id]:
+            parameters = inspect.signature(resolve(client, name)).parameters
+            assert "idempotency_key" not in parameters, name
+
+
+@pytest.mark.parametrize("client", list(make_clients()), ids=["sync", "async"])
+def test_every_method_takes_a_keyword_only_request_id(client: object) -> None:
+    for name in EXPECTED_NAMES + HAND_WRITTEN_METHODS:
+        parameter = inspect.signature(resolve(client, name)).parameters["request_id"]
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY, name
+        assert parameter.default is NOT_GIVEN, name
+
+
+@pytest.mark.parametrize("client", list(make_clients()), ids=["sync", "async"])
+def test_every_method_summary_is_a_sentence(client: object) -> None:
+    # PEP 257: the summary, the docstring's first paragraph, ends a sentence.
+    for name in EXPECTED_NAMES + HAND_WRITTEN_METHODS:
+        docstring = inspect.getdoc(resolve(client, name))
+        assert docstring is not None, name
+        summary = docstring.split("\n\n")[0]
+        assert summary.endswith("."), name

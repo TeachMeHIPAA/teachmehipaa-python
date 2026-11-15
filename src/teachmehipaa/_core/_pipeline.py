@@ -15,7 +15,7 @@ from ._config import ClientConfig
 from ._errors import error_from_response, unexpected_response_error
 from ._files import read_uploads
 from ._models import AsyncBinaryStream, BinaryResponse, BinaryStream, NotModified
-from ._pagination import AsyncPage, ItemT, PageBody, PaginationStyle, SyncPage
+from ._pagination import AsyncPage, ItemT, PageBody, SyncPage
 from ._request import (
     INTROSPECTION,
     ApiRequest,
@@ -112,7 +112,7 @@ class SyncPipeline:
         page_model: type[PageBody[ItemT]],
         *,
         cursor_param: str,
-        style: PaginationStyle,
+        position_field: str | None = None,
     ) -> SyncPage[ItemT]:
         body = read_model(self.send(api_request), page_model)
         return SyncPage(
@@ -120,7 +120,7 @@ class SyncPipeline:
             pipeline=self,
             request=api_request,
             cursor_param=cursor_param,
-            style=style,
+            position_field=position_field,
         )
 
     def request_empty(self, api_request: ApiRequest) -> None:
@@ -224,7 +224,7 @@ class AsyncPipeline:
         page_model: type[PageBody[ItemT]],
         *,
         cursor_param: str,
-        style: PaginationStyle,
+        position_field: str | None = None,
     ) -> AsyncPage[ItemT]:
         body = read_model(await self.send(api_request), page_model)
         return AsyncPage(
@@ -232,7 +232,7 @@ class AsyncPipeline:
             pipeline=self,
             request=api_request,
             cursor_param=cursor_param,
-            style=style,
+            position_field=position_field,
         )
 
     async def request_empty(self, api_request: ApiRequest) -> None:

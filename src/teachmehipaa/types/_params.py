@@ -2,7 +2,7 @@
 # Regenerate with `uv run python scripts/generate.py`.
 
 from collections.abc import Sequence
-from typing import TypeAlias
+from typing import Literal, TypeAlias
 
 from typing_extensions import Required, TypedDict
 
@@ -37,17 +37,17 @@ class LearnerBatchUpsertRequestItemsItemParam(TypedDict, total=False):
 
 
 class SeatOrderCreateRequestPaymentHostedCheckoutParam(TypedDict, total=False):
-    method: Required[str]
+    method: Required[Literal["hosted_checkout"]]
     return_url: Required[str]
 
 
 class SeatOrderCreateRequestPaymentInvoiceParam(TypedDict, total=False):
-    method: Required[str]
+    method: Required[Literal["invoice"]]
     days_until_due: int
 
 
 class SeatOrderCreateRequestPaymentSavedPaymentMethodParam(TypedDict, total=False):
-    method: Required[str]
+    method: Required[Literal["saved_payment_method"]]
     return_url: str
     payment_method_id: str
     expected_total: int

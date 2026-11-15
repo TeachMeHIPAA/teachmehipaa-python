@@ -15,6 +15,8 @@ from typing import Any, Literal, TypeAlias
 
 import httpx
 
+from ._models import request_id_of
+
 
 @dataclass(frozen=True)
 class FieldError:
@@ -175,7 +177,7 @@ def error_from_response(response: httpx.Response) -> TeachMeHipaaError:
     title = _str_or_none(problem.get("title"))
     detail = _str_or_none(problem.get("detail"))
     return error_class(
-        detail or title or code or f"HTTP {response.status_code}",
+        problem_message(detail, title, code, f"HTTP {response.status_code}"),
         status=response.status_code,
         code=code,
         title=title,
@@ -183,6 +185,13 @@ def error_from_response(response: httpx.Response) -> TeachMeHipaaError:
         errors=_field_errors(problem.get("errors")),
         **_response_fields(response),
     )
+
+
+def problem_message(
+    detail: str | None, title: str | None, code: str | None, fallback: str
+) -> str:
+    """An error message from a problem's most specific field present."""
+    return detail or title or code or fallback
 
 
 def oauth_error_from_response(response: httpx.Response) -> TeachMeHipaaError:
@@ -240,7 +249,7 @@ def parse_retry_after(headers: httpx.Headers) -> float | None:
 
 def _response_fields(response: httpx.Response) -> dict[str, Any]:
     return {
-        "request_id": response.headers.get("x-request-id"),
+        "request_id": request_id_of(response.headers),
         "headers": response.headers,
         "body": response.text,
     }

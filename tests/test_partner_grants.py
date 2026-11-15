@@ -1,4 +1,5 @@
 import asyncio
+import re
 import threading
 from typing import Any
 from urllib.parse import parse_qs
@@ -62,7 +63,7 @@ def form_of(request_content: bytes) -> dict[str, list[str]]:
 
 def test_the_rotated_refresh_token_is_saved_before_the_api_request_is_sent() -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-org", REFRESH_TOKEN_2))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-org", REFRESH_TOKEN_2))
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
     store = MemoryStore(api)
     client = TeachMeHipaa(
@@ -87,7 +88,7 @@ def test_the_rotated_refresh_token_is_saved_before_the_api_request_is_sent() -> 
         "refresh_token": [REFRESH_TOKEN_1],
     }
     [learner_request] = api.requests_to("GET", LEARNER_PATH)
-    assert learner_request.headers["authorization"] == "Bearer jwt-org"
+    assert learner_request.headers["authorization"] == "Bearer access-token-org"
 
 
 class AsyncMemoryStore:
@@ -176,7 +177,7 @@ def bearers(api: FakeApi) -> list[str]:
 
 async def test_the_async_provider_saves_before_the_api_request_is_sent() -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-org", REFRESH_TOKEN_2))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-org", REFRESH_TOKEN_2))
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
     store = AsyncMemoryStore(api)
 
@@ -184,12 +185,12 @@ async def test_the_async_provider_saves_before_the_api_request_is_sent() -> None
 
     assert store.saved == [REFRESH_TOKEN_2]
     assert store.requests_seen_at_save == [["/v1/auth/token"]]
-    assert bearers(api) == ["Bearer jwt-org"]
+    assert bearers(api) == ["Bearer access-token-org"]
 
 
 def test_a_failed_save_aborts_the_call_without_using_the_access_token() -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-org", REFRESH_TOKEN_2))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-org", REFRESH_TOKEN_2))
 
     with pytest.raises(
         TokenStoreError, match=r"token_store\.save\(\) failed"
@@ -198,7 +199,7 @@ def test_a_failed_save_aborts_the_call_without_using_the_access_token() -> None:
 
     assert isinstance(raised.value.__cause__, OSError)
     assert REFRESH_TOKEN_2 not in str(raised.value)
-    assert "jwt-org" not in str(raised.value)
+    assert "access-token-org" not in str(raised.value)
     assert api.requests_to("GET", LEARNER_PATH) == []
 
 
@@ -211,7 +212,7 @@ async def test_a_failed_async_save_aborts_the_call() -> None:
             raise OSError("database is read-only")
 
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-org", REFRESH_TOKEN_2))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-org", REFRESH_TOKEN_2))
 
     with pytest.raises(TokenStoreError) as raised:
         await async_grant_client(api, FailingStore()).learners.retrieve(LEARNER_ID)
@@ -222,8 +223,8 @@ async def test_a_failed_async_save_aborts_the_call() -> None:
 
 def test_after_a_failed_save_the_rotated_refresh_token_is_presented() -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-1", REFRESH_TOKEN_2))
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-2", REFRESH_TOKEN_3))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-1", REFRESH_TOKEN_2))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-2", REFRESH_TOKEN_3))
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
     store = ReadOnlyStore(failures=1)
     client = grant_client(api, store)
@@ -312,7 +313,7 @@ def test_concurrent_calls_exchange_the_refresh_token_once() -> None:
         # Hold the first exchange open until the other caller is waiting on
         # it, or until a duplicate exchange proves it isn't.
         second_exchange.wait(timeout=0.2)
-        return grant_token_reply("jwt-org", REFRESH_TOKEN_2)
+        return grant_token_reply("access-token-org", REFRESH_TOKEN_2)
 
     api.on("POST", TOKEN_PATH, slow_token_endpoint)
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
@@ -334,7 +335,7 @@ def test_concurrent_calls_exchange_the_refresh_token_once() -> None:
 
 async def test_concurrent_async_calls_exchange_the_refresh_token_once() -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-org", REFRESH_TOKEN_2))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-org", REFRESH_TOKEN_2))
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
     store = AsyncMemoryStore(api)
     client = async_grant_client(api, store)
@@ -343,15 +344,19 @@ async def test_concurrent_async_calls_exchange_the_refresh_token_once() -> None:
 
     assert len(api.requests_to("POST", TOKEN_PATH)) == 1
     assert store.saved == [REFRESH_TOKEN_2]
-    assert bearers(api) == ["Bearer jwt-org"] * 5
+    assert bearers(api) == ["Bearer access-token-org"] * 5
 
 
 def test_re_mints_60_seconds_before_expiry_with_the_rotated_refresh_token(
     clock: FakeClock,
 ) -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-1", REFRESH_TOKEN_2, 900))
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-2", REFRESH_TOKEN_3, 900))
+    api.on(
+        "POST", TOKEN_PATH, grant_token_reply("access-token-1", REFRESH_TOKEN_2, 900)
+    )
+    api.on(
+        "POST", TOKEN_PATH, grant_token_reply("access-token-2", REFRESH_TOKEN_3, 900)
+    )
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
     store = MemoryStore(api)
     client = grant_client(api, store, clock=clock)
@@ -364,25 +369,29 @@ def test_re_mints_60_seconds_before_expiry_with_the_rotated_refresh_token(
 
     assert refresh_tokens_sent(api) == [REFRESH_TOKEN_1, REFRESH_TOKEN_2]
     assert store.saved == [REFRESH_TOKEN_2, REFRESH_TOKEN_3]
-    assert bearers(api) == ["Bearer jwt-1", "Bearer jwt-1", "Bearer jwt-2"]
+    assert bearers(api) == [
+        "Bearer access-token-1",
+        "Bearer access-token-1",
+        "Bearer access-token-2",
+    ]
 
 
 def test_a_401_re_mints_once_and_replays_the_request() -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-1", REFRESH_TOKEN_2))
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-2", REFRESH_TOKEN_3))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-1", REFRESH_TOKEN_2))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-2", REFRESH_TOKEN_3))
     api.on("GET", LEARNER_PATH, problem(401, "unauthorized"))
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
 
     grant_client(api, MemoryStore(api)).learners.retrieve(LEARNER_ID)
 
     assert refresh_tokens_sent(api) == [REFRESH_TOKEN_1, REFRESH_TOKEN_2]
-    assert bearers(api) == ["Bearer jwt-1", "Bearer jwt-2"]
+    assert bearers(api) == ["Bearer access-token-1", "Bearer access-token-2"]
 
 
 def test_a_refresh_token_passed_up_front_is_used_for_the_first_exchange() -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-org", REFRESH_TOKEN_3))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-org", REFRESH_TOKEN_3))
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
     store = MemoryStore(api, initial="tmh_rt_never_loaded")
 
@@ -396,7 +405,7 @@ def test_a_refresh_token_passed_up_front_is_used_for_the_first_exchange() -> Non
 
 def test_scopes_narrow_the_access_token() -> None:
     api = FakeApi()
-    api.on("POST", TOKEN_PATH, grant_token_reply("jwt-org", REFRESH_TOKEN_2))
+    api.on("POST", TOKEN_PATH, grant_token_reply("access-token-org", REFRESH_TOKEN_2))
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
 
     grant_client(api, MemoryStore(api), scopes=["learners:read"]).learners.retrieve(
@@ -414,3 +423,66 @@ def test_a_store_that_loads_no_refresh_token_raises_before_any_exchange() -> Non
         grant_client(api, MemoryStore(api, initial="")).learners.retrieve(LEARNER_ID)
 
     assert api.requests == []
+
+
+# --- Environment agreement ---------------------------------------------------
+
+
+def test_a_sandbox_client_refuses_a_provider_that_refreshes_against_live() -> None:
+    provider = PartnerGrantTokenProvider(
+        client_id=APP_ID, client_secret=APP_SECRET, token_store=ReadOnlyStore()
+    )
+
+    with pytest.raises(ValueError, match=re.escape("https://api.tme.so/v1")) as raised:
+        TeachMeHipaa(token_provider=provider, environment="sandbox")
+
+    assert "https://api-teachmehipaa-dev.web.app/v1" in str(raised.value)
+
+
+def test_a_client_refuses_a_provider_with_a_different_base_url() -> None:
+    provider = PartnerGrantTokenProvider(
+        client_id=APP_ID,
+        client_secret=APP_SECRET,
+        token_store=ReadOnlyStore(),
+        base_url="http://localhost:4010",
+    )
+
+    with pytest.raises(ValueError, match="localhost:4010"):
+        TeachMeHipaa(token_provider=provider, base_url="http://localhost:4011")
+
+
+def test_a_provider_and_client_in_the_same_environment_agree() -> None:
+    provider = PartnerGrantTokenProvider(
+        client_id=APP_ID,
+        client_secret=APP_SECRET,
+        token_store=ReadOnlyStore(),
+        environment="sandbox",
+    )
+
+    client = TeachMeHipaa(token_provider=provider, environment="sandbox")
+
+    assert client.environment == "sandbox"
+
+
+def test_a_trailing_slash_does_not_count_as_a_different_base_url() -> None:
+    provider = PartnerGrantTokenProvider(
+        client_id=APP_ID,
+        client_secret=APP_SECRET,
+        token_store=ReadOnlyStore(),
+        base_url="http://localhost:4010/v1/",
+    )
+
+    client = TeachMeHipaa(token_provider=provider, base_url="http://localhost:4010/v1")
+
+    assert client.base_url == "http://localhost:4010/v1"
+
+
+def test_an_async_sandbox_client_refuses_a_live_provider() -> None:
+    provider = AsyncPartnerGrantTokenProvider(
+        client_id=APP_ID,
+        client_secret=APP_SECRET,
+        token_store=AsyncMemoryStore(FakeApi()),
+    )
+
+    with pytest.raises(ValueError, match=re.escape("https://api.tme.so/v1")):
+        AsyncTeachMeHipaa(token_provider=provider, environment="sandbox")

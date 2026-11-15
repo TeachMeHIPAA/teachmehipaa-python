@@ -24,8 +24,9 @@ class Courses(SyncAPIResource):
         cursor: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[Course]:
-        """List all courses
+        """List all courses.
 
         Returns a list of the courses in the public catalog. Needs no access token.
 
@@ -34,6 +35,10 @@ class Courses(SyncAPIResource):
             cursor: The `nextCursor` from the previous page.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -42,11 +47,12 @@ class Courses(SyncAPIResource):
                 query={"limit": limit, "cursor": cursor},
                 authenticated=False,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             CoursesPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     @overload
@@ -58,6 +64,7 @@ class Courses(SyncAPIResource):
         if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Course: ...
 
     @overload
@@ -69,6 +76,7 @@ class Courses(SyncAPIResource):
         if_none_match: ETagSource,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Course | NotModified: ...
 
     def retrieve(
@@ -79,8 +87,9 @@ class Courses(SyncAPIResource):
         if_none_match: ETagSource | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Course | NotModified:
-        """Retrieve a course
+        """Retrieve a course.
 
         Retrieves a course from the public catalog.
 
@@ -90,6 +99,10 @@ class Courses(SyncAPIResource):
                 `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_conditional(
             ApiRequest(
@@ -99,7 +112,9 @@ class Courses(SyncAPIResource):
                 if_none_match=if_none_match,
                 authenticated=False,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Course,
         )
@@ -113,8 +128,9 @@ class AsyncCourses(AsyncAPIResource):
         cursor: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[Course]:
-        """List all courses
+        """List all courses.
 
         Returns a list of the courses in the public catalog. Needs no access token.
 
@@ -123,6 +139,10 @@ class AsyncCourses(AsyncAPIResource):
             cursor: The `nextCursor` from the previous page.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -131,11 +151,12 @@ class AsyncCourses(AsyncAPIResource):
                 query={"limit": limit, "cursor": cursor},
                 authenticated=False,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             CoursesPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     @overload
@@ -147,6 +168,7 @@ class AsyncCourses(AsyncAPIResource):
         if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Course: ...
 
     @overload
@@ -158,6 +180,7 @@ class AsyncCourses(AsyncAPIResource):
         if_none_match: ETagSource,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Course | NotModified: ...
 
     async def retrieve(
@@ -168,8 +191,9 @@ class AsyncCourses(AsyncAPIResource):
         if_none_match: ETagSource | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Course | NotModified:
-        """Retrieve a course
+        """Retrieve a course.
 
         Retrieves a course from the public catalog.
 
@@ -179,6 +203,10 @@ class AsyncCourses(AsyncAPIResource):
                 `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_conditional(
             ApiRequest(
@@ -188,7 +216,9 @@ class AsyncCourses(AsyncAPIResource):
                 if_none_match=if_none_match,
                 authenticated=False,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Course,
         )

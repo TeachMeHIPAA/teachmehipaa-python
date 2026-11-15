@@ -6,6 +6,8 @@ Replaying a spent code or a superseded Refresh token revokes the Grant
 
 from __future__ import annotations
 
+import asyncio
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 
@@ -25,6 +27,9 @@ from ._errors import (
 )
 from ._retry import AsyncSender, RetryPolicy, SyncSender
 
+# Replaying a spent code or a superseded Refresh token revokes the Grant
+# (ADR-0004), so an exchange is sent once: with no retries allowed, the
+# sender never reaches its sleep.
 _NEVER_RETRY = RetryPolicy(retry_safe=False, max_retries=0)
 
 
@@ -58,16 +63,10 @@ class ExchangeGuidance:
     """What to tell the caller when an exchange fails in a way only they can
     fix."""
 
-    connection: str
+    network_failure: str
     """For a network failure, whose outcome is unknown."""
     invalid_grant: str | None = None
     """For `invalid_grant`, or None to keep the endpoint's words."""
-
-
-def require_text(value: str, name: str) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError(f"{name} must be a non-empty string")
-    return value
 
 
 def _append(message: str, guidance: str) -> str:
@@ -79,7 +78,7 @@ def _with_guidance(
 ) -> TeachMeHipaaError:
     guided: TeachMeHipaaError
     if isinstance(error, APIConnectionError):
-        message = _append(error.message, guidance.connection)
+        message = _append(error.message, guidance.network_failure)
         if isinstance(error, APITimeoutError):
             guided = APITimeoutError(message)
         else:
@@ -141,14 +140,6 @@ def _read_grant(response: httpx.Response, *, requested_at: float) -> GrantExchan
     )
 
 
-def _never_sleep(seconds: float) -> None:
-    raise AssertionError("a Grant exchange is never retried")
-
-
-async def _never_sleep_async(seconds: float) -> None:
-    raise AssertionError("a Grant exchange is never retried")
-
-
 def exchange_grant(
     http_client: httpx.Client | None,
     endpoint: TokenEndpoint,
@@ -176,7 +167,7 @@ def _send(
     credentials: ClientCredentials,
     form: Mapping[str, str],
 ) -> httpx.Response:
-    return SyncSender(http_client, _never_sleep).send(
+    return SyncSender(http_client, time.sleep).send(
         lambda: credentials.token_request(
             endpoint.url, form, user_agent=endpoint.user_agent, timeout=endpoint.timeout
         ),
@@ -216,6 +207,6 @@ async def _async_send(
             endpoint.url, form, user_agent=endpoint.user_agent, timeout=endpoint.timeout
         )
 
-    return await AsyncSender(http_client, _never_sleep_async).send(
+    return await AsyncSender(http_client, asyncio.sleep).send(
         make_request, oauth_error_from_response, _NEVER_RETRY
     )

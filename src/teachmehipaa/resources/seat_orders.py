@@ -32,8 +32,9 @@ class SeatOrders(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrderCreated:
-        """Create a seat order
+        """Create a seat order.
 
         Buys seats at list price. Pay with a Stripe-hosted checkout, the organization's
         saved card, or an invoice when it's enabled. Send the `expectedTotal` and
@@ -51,6 +52,10 @@ class SeatOrders(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -68,6 +73,7 @@ class SeatOrders(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             SeatOrderCreated,
@@ -80,8 +86,9 @@ class SeatOrders(SyncAPIResource):
         cursor: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[SeatOrder]:
-        """List all seat orders
+        """List all seat orders.
 
         Returns a list of the organization's seat orders, oldest first. Requires the
         `seats:purchase` or `billing:write` scope.
@@ -91,6 +98,10 @@ class SeatOrders(SyncAPIResource):
             cursor: The `nextCursor` from the previous page.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -99,11 +110,12 @@ class SeatOrders(SyncAPIResource):
                 query={"limit": limit, "cursor": cursor},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             SeatOrdersPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     def quote(
@@ -113,8 +125,9 @@ class SeatOrders(SyncAPIResource):
         currency: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrderQuote:
-        """Quote a seat order
+        """Quote a seat order.
 
         Gets the list price for a number of seats in the organization's currency, before
         tax. The quote is for display and expires after 15 minutes. Requires the
@@ -126,6 +139,10 @@ class SeatOrders(SyncAPIResource):
                 organization's.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -134,7 +151,9 @@ class SeatOrders(SyncAPIResource):
                 body={"quantity": quantity, "currency": currency},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             SeatOrderQuote,
         )
@@ -148,6 +167,7 @@ class SeatOrders(SyncAPIResource):
         if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrder: ...
 
     @overload
@@ -159,6 +179,7 @@ class SeatOrders(SyncAPIResource):
         if_none_match: ETagSource,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrder | NotModified: ...
 
     def retrieve(
@@ -169,8 +190,9 @@ class SeatOrders(SyncAPIResource):
         if_none_match: ETagSource | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrder | NotModified:
-        """Retrieve a seat order
+        """Retrieve a seat order.
 
         Retrieves a seat order, its status and the seats it granted. Requires the
         `seats:purchase` or `billing:write` scope.
@@ -182,6 +204,10 @@ class SeatOrders(SyncAPIResource):
                 `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_conditional(
             ApiRequest(
@@ -191,7 +217,9 @@ class SeatOrders(SyncAPIResource):
                 if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             SeatOrder,
         )
@@ -207,8 +235,9 @@ class AsyncSeatOrders(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrderCreated:
-        """Create a seat order
+        """Create a seat order.
 
         Buys seats at list price. Pay with a Stripe-hosted checkout, the organization's
         saved card, or an invoice when it's enabled. Send the `expectedTotal` and
@@ -226,6 +255,10 @@ class AsyncSeatOrders(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -243,6 +276,7 @@ class AsyncSeatOrders(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             SeatOrderCreated,
@@ -255,8 +289,9 @@ class AsyncSeatOrders(AsyncAPIResource):
         cursor: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[SeatOrder]:
-        """List all seat orders
+        """List all seat orders.
 
         Returns a list of the organization's seat orders, oldest first. Requires the
         `seats:purchase` or `billing:write` scope.
@@ -266,6 +301,10 @@ class AsyncSeatOrders(AsyncAPIResource):
             cursor: The `nextCursor` from the previous page.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -274,11 +313,12 @@ class AsyncSeatOrders(AsyncAPIResource):
                 query={"limit": limit, "cursor": cursor},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             SeatOrdersPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     async def quote(
@@ -288,8 +328,9 @@ class AsyncSeatOrders(AsyncAPIResource):
         currency: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrderQuote:
-        """Quote a seat order
+        """Quote a seat order.
 
         Gets the list price for a number of seats in the organization's currency, before
         tax. The quote is for display and expires after 15 minutes. Requires the
@@ -301,6 +342,10 @@ class AsyncSeatOrders(AsyncAPIResource):
                 organization's.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -309,7 +354,9 @@ class AsyncSeatOrders(AsyncAPIResource):
                 body={"quantity": quantity, "currency": currency},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             SeatOrderQuote,
         )
@@ -323,6 +370,7 @@ class AsyncSeatOrders(AsyncAPIResource):
         if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrder: ...
 
     @overload
@@ -334,6 +382,7 @@ class AsyncSeatOrders(AsyncAPIResource):
         if_none_match: ETagSource,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrder | NotModified: ...
 
     async def retrieve(
@@ -344,8 +393,9 @@ class AsyncSeatOrders(AsyncAPIResource):
         if_none_match: ETagSource | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SeatOrder | NotModified:
-        """Retrieve a seat order
+        """Retrieve a seat order.
 
         Retrieves a seat order, its status and the seats it granted. Requires the
         `seats:purchase` or `billing:write` scope.
@@ -357,6 +407,10 @@ class AsyncSeatOrders(AsyncAPIResource):
                 `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_conditional(
             ApiRequest(
@@ -366,7 +420,9 @@ class AsyncSeatOrders(AsyncAPIResource):
                 if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             SeatOrder,
         )

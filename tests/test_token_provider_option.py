@@ -35,7 +35,7 @@ def test_a_static_token_is_sent_as_is_and_the_token_endpoint_is_never_called() -
     api = FakeApi()
     api.on("GET", LEARNER_PATH, Reply(json=LEARNER_JSON))
     client = TeachMeHipaa(
-        token_provider=StaticTokenProvider("jwt-from-elsewhere"),
+        token_provider=StaticTokenProvider("access-token-from-elsewhere"),
         organization_id=ORG_ID,
         http_client=api.sync_client(),
     )
@@ -44,14 +44,14 @@ def test_a_static_token_is_sent_as_is_and_the_token_endpoint_is_never_called() -
     client.learners.retrieve(LEARNER_ID)
 
     assert api.requests_to("POST", "/auth/token") == []
-    assert bearers(api) == ["Bearer jwt-from-elsewhere"] * 2
+    assert bearers(api) == ["Bearer access-token-from-elsewhere"] * 2
 
 
 def test_a_static_token_refused_with_401_is_sent_once() -> None:
     api = FakeApi()
     api.on("GET", LEARNER_PATH, UNAUTHORIZED)
     client = TeachMeHipaa(
-        token_provider=StaticTokenProvider("jwt-expired"),
+        token_provider=StaticTokenProvider("access-token-expired"),
         organization_id=ORG_ID,
         http_client=api.sync_client(),
     )
@@ -66,7 +66,7 @@ async def test_an_async_static_token_refused_with_401_is_sent_once() -> None:
     api = FakeApi()
     api.on("GET", LEARNER_PATH, UNAUTHORIZED)
     client = AsyncTeachMeHipaa(
-        token_provider=AsyncStaticTokenProvider("jwt-expired"),
+        token_provider=AsyncStaticTokenProvider("access-token-expired"),
         organization_id=ORG_ID,
         http_client=api.async_client(),
     )
@@ -79,7 +79,7 @@ async def test_an_async_static_token_refused_with_401_is_sent_once() -> None:
 
 
 def test_a_static_token_must_not_be_empty() -> None:
-    with pytest.raises(ValueError, match="Access token"):
+    with pytest.raises(ValueError, match="access_token must be a non-empty string"):
         StaticTokenProvider("")
 
 
@@ -120,7 +120,7 @@ def test_a_partner_apps_own_credentials_call_partners_without_an_organization() 
         "/auth/token",
         Reply(
             json={
-                "access_token": "jwt-partner",
+                "access_token": "access-token-partner",
                 "token_type": "Bearer",
                 "expires_in": 900,
                 "scope": "partner:orgs:read partner:orgs:write",
@@ -153,4 +153,4 @@ def test_a_partner_apps_own_credentials_call_partners_without_an_organization() 
     [mint] = api.requests_to("POST", "/auth/token")
     assert mint.headers["authorization"] == f"Basic {APP_BASIC_CREDENTIALS}"
     [call] = api.requests_to("GET", f"/partners/{partner_id}")
-    assert call.headers["authorization"] == "Bearer jwt-partner"
+    assert call.headers["authorization"] == "Bearer access-token-partner"

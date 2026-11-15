@@ -24,8 +24,9 @@ class EventsBase(SyncAPIResource):
         type: EventType | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[Event]:
-        """List all events
+        """List all events.
 
         Returns a list of the organization's events from the last 30 days, oldest first.
         Pass the last `eventId` you processed as `after` to resume where you stopped,
@@ -38,6 +39,10 @@ class EventsBase(SyncAPIResource):
             type: Filter to one event type.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -46,11 +51,13 @@ class EventsBase(SyncAPIResource):
                 query={"limit": limit, "after": after, "type": type},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             OrgEventsPage,
             cursor_param="after",
-            style="after",
+            position_field="event_id",
         )
 
 
@@ -67,8 +74,9 @@ class AsyncEventsBase(AsyncAPIResource):
         type: EventType | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[Event]:
-        """List all events
+        """List all events.
 
         Returns a list of the organization's events from the last 30 days, oldest first.
         Pass the last `eventId` you processed as `after` to resume where you stopped,
@@ -81,6 +89,10 @@ class AsyncEventsBase(AsyncAPIResource):
             type: Filter to one event type.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -89,9 +101,11 @@ class AsyncEventsBase(AsyncAPIResource):
                 query={"limit": limit, "after": after, "type": type},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             OrgEventsPage,
             cursor_param="after",
-            style="after",
+            position_field="event_id",
         )

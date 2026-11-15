@@ -459,6 +459,10 @@ def _request_options(h: Harness) -> None:
         "hr-sync-2026-11-15-ana",
     ]
     assert attempts[0].extensions["timeout"]["read"] == 10.0
+    assert [r.headers["x-request-id"] for r in attempts] == [
+        "hr-sync-2026-11-15-ana",
+        "hr-sync-2026-11-15-ana",
+    ]
     assert len(h.sleep.waits) == 1
     assert h.printed() == [f"{LEARNER_ID}__hipaa-2026-1 req_e1"]
 

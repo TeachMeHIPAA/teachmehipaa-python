@@ -207,13 +207,15 @@ The client retries network errors, 409 `conflict`, 429 and 5xx up to
 jitter and honoring `Retry-After` up to 60 s. It only retries calls that are
 safe to replay: reads, writes that carry an `Idempotency-Key`, and the few
 writes that are idempotent by nature, such as `seat_orders.quote`. PATCH and
-DELETE are never retried, even with your own key.
+DELETE are never retried, and take no key: the API ignores one on them.
 
 Every create and custom method gets a generated UUID `Idempotency-Key`,
 reused by each of its retries, so a retry never enrolls a Learner twice or
 charges twice. Pass your own to make a call safe to repeat across processes.
 `max_retries` and `timeout` (in seconds) override the client's settings for
-one call:
+one call, and `request_id` sends your own `x-request-id` on every attempt so
+the call can be found in your logs and TeachMeHIPAA's. The API echoes an id
+that matches `^[A-Za-z0-9._-]{1,128}$` and replaces any other:
 
 <!-- sample: request-options -->
 ```python
@@ -223,6 +225,7 @@ enrollment = client.enrollments.create(
     idempotency_key="hr-sync-2026-11-15-ana",
     max_retries=5,
     timeout=10.0,
+    request_id="hr-sync-2026-11-15-ana",
 )
 print(enrollment.enrollment_id, enrollment.last_response.request_id)
 ```
@@ -528,7 +531,7 @@ def finish_consent(code: str, state: str) -> None:
 
 A code works once, within 10 minutes, so the exchange is never retried.
 
-Then create a client per connected Organization with a
+Then create a client per authorized Organization with a
 `PartnerGrantTokenProvider` and a token store: any object with `load()` and
 `save(refresh_token)`. Every token exchange rotates the Grant's Refresh
 token, and the provider saves each new one to the store before it uses the
@@ -575,6 +578,10 @@ print(len(client.learners.list().items))
 > the Organization must go through consent again. Never retry these yourself
 > with an old Refresh token. If `save` raises, the client raises
 > `TokenStoreError` and doesn't use the new token.
+
+Give the provider the same `environment` (and `base_url`) as the client:
+a client refuses, with `ValueError`, a provider that would exchange Refresh
+tokens against another Environment.
 
 The asyncio versions are `AsyncPartnerGrantTokenProvider` (with an
 `AsyncTokenStore`, whose methods are `async`) and `oauth.async_exchange_code`.

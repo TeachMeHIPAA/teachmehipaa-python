@@ -1,4 +1,4 @@
-"""Helpers for connecting Organizations to a Partner app: PKCE pairs, the
+"""Helpers for authorizing Organizations for a Partner app: PKCE pairs, the
 consent URL and the code exchange. They need no client."""
 
 from __future__ import annotations
@@ -14,14 +14,19 @@ from urllib.parse import quote, urlencode, urlsplit
 
 import httpx
 
-from ._core._auth import ClientCredentials
-from ._core._config import DEFAULT_TIMEOUT, AppInfo, Environment, make_token_endpoint
+from ._core._auth import ClientCredentials, require_text
+from ._core._config import (
+    DEFAULT_TIMEOUT,
+    AppInfo,
+    Environment,
+    for_environment,
+    make_token_endpoint,
+)
 from ._core._grant_exchange import (
     ExchangeGuidance,
     GrantTokens,
     async_exchange_grant,
     exchange_grant,
-    require_text,
 )
 
 __all__ = [
@@ -35,7 +40,7 @@ __all__ = [
 ]
 
 _CODE_EXCHANGE_GUIDANCE = ExchangeGuidance(
-    connection=(
+    network_failure=(
         "The code exchange was not retried: the code may have been consumed, "
         "and a code works only once. Re-run consent to get a new code."
     )
@@ -92,11 +97,7 @@ def _consent_base_url(environment: Environment, authorization_url: str | None) -
         if not parts.scheme or not parts.netloc:
             raise ValueError("authorization_url must be an absolute URL")
         return authorization_url
-    if environment not in _AUTHORIZATION_URLS:
-        raise ValueError(
-            f"environment must be 'live' or 'sandbox', not {environment!r}"
-        )
-    url = _AUTHORIZATION_URLS[environment]
+    url = for_environment(_AUTHORIZATION_URLS, environment)
     if url is None:
         raise ValueError(
             f"pass authorization_url: the {environment} consent URL is not built in"
@@ -160,13 +161,6 @@ def _code_exchange_form(
     }
 
 
-def _partner_app(client_id: str, client_secret: str) -> ClientCredentials:
-    return ClientCredentials(
-        require_text(client_id, "client_id"),
-        require_text(client_secret, "client_secret"),
-    )
-
-
 def exchange_code(
     *,
     client_id: str,
@@ -212,7 +206,7 @@ def exchange_code(
             app_info=app_info,
             clock=None,
         ),
-        _partner_app(client_id, client_secret),
+        ClientCredentials.checked(client_id, client_secret),
         _code_exchange_form(
             code=code, redirect_uri=redirect_uri, code_verifier=code_verifier
         ),
@@ -244,7 +238,7 @@ async def async_exchange_code(
             app_info=app_info,
             clock=None,
         ),
-        _partner_app(client_id, client_secret),
+        ClientCredentials.checked(client_id, client_secret),
         _code_exchange_form(
             code=code, redirect_uri=redirect_uri, code_verifier=code_verifier
         ),

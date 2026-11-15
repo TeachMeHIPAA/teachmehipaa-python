@@ -9,6 +9,15 @@ import httpx
 import pydantic
 from pydantic.alias_generators import to_camel
 
+# Undeclared in the spec, but the API sends it on every response and echoes
+# one a caller sends (research `api-sdk-surface.md` §7).
+REQUEST_ID_HEADER = "x-request-id"
+
+
+def request_id_of(headers: httpx.Headers) -> str | None:
+    request_id: str | None = headers.get(REQUEST_ID_HEADER)
+    return request_id
+
 
 @dataclass(frozen=True)
 class LastResponse:
@@ -19,8 +28,7 @@ class LastResponse:
 
     @property
     def request_id(self) -> str | None:
-        request_id: str | None = self.headers.get("x-request-id")
-        return request_id
+        return request_id_of(self.headers)
 
     @property
     def etag(self) -> str | None:

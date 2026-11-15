@@ -5,7 +5,7 @@ from __future__ import annotations
 
 import dataclasses
 from collections.abc import AsyncIterator, Iterator
-from typing import TYPE_CHECKING, Generic, Literal, TypeVar
+from typing import TYPE_CHECKING, Generic, TypeVar
 
 from ._models import BaseModel, LastResponse
 from ._request import ApiRequest
@@ -14,10 +14,6 @@ if TYPE_CHECKING:
     from ._pipeline import AsyncPipeline, SyncPipeline
 
 ItemT = TypeVar("ItemT")
-
-PaginationStyle = Literal["cursor", "after"]
-"""How a list asks for its next page, from the IR. A `cursor` list sends the
-opaque `next_cursor`; the Event log (`after`) sends the last Event's id."""
 
 
 class PageBody(BaseModel, Generic[ItemT]):
@@ -35,14 +31,14 @@ class _Page(Generic[ItemT]):
         *,
         request: ApiRequest,
         cursor_param: str,
-        style: PaginationStyle,
+        position_field: str | None,
     ) -> None:
         self._body = body
         # The request and the IR's cursor parameter are what fetching the next
         # page needs: the same request with the cursor replaced.
         self._request = request
         self._cursor_param = cursor_param
-        self._style = style
+        self._position_field = position_field
 
     @property
     def items(self) -> list[ItemT]:
@@ -74,12 +70,14 @@ class _Page(Generic[ItemT]):
         return dataclasses.replace(self._request, query=query)
 
     def _position(self, next_cursor: str) -> str:
-        if self._style == "cursor" or not self._body.items:
+        """The next page's cursor. A list the IR pages `after` an item (the
+        Event log) keys on that item's id: `next_cursor` is the last id while
+        more rows exist, so the last item is the authoritative position.
+        Every other list sends the opaque `next_cursor`."""
+        if self._position_field is None or not self._body.items:
             return next_cursor
-        # The Event log keys on Event ids: `next_cursor` is the last id while
-        # more rows exist, so the last Event is the authoritative position.
-        event_id = getattr(self._body.items[-1], "event_id", None)
-        return event_id if isinstance(event_id, str) else next_cursor
+        position = getattr(self._body.items[-1], self._position_field, None)
+        return position if isinstance(position, str) else next_cursor
 
     def __repr__(self) -> str:
         return (
@@ -98,9 +96,14 @@ class SyncPage(_Page[ItemT]):
         pipeline: SyncPipeline,
         request: ApiRequest,
         cursor_param: str,
-        style: PaginationStyle,
+        position_field: str | None,
     ) -> None:
-        super().__init__(body, request=request, cursor_param=cursor_param, style=style)
+        super().__init__(
+            body,
+            request=request,
+            cursor_param=cursor_param,
+            position_field=position_field,
+        )
         self._pipeline = pipeline
 
     def __iter__(self) -> Iterator[ItemT]:
@@ -120,7 +123,7 @@ class SyncPage(_Page[ItemT]):
             self._next_request(),
             type(self._body),
             cursor_param=self._cursor_param,
-            style=self._style,
+            position_field=self._position_field,
         )
 
     def iter_pages(self) -> Iterator[SyncPage[ItemT]]:
@@ -147,9 +150,14 @@ class AsyncPage(_Page[ItemT]):
         pipeline: AsyncPipeline,
         request: ApiRequest,
         cursor_param: str,
-        style: PaginationStyle,
+        position_field: str | None,
     ) -> None:
-        super().__init__(body, request=request, cursor_param=cursor_param, style=style)
+        super().__init__(
+            body,
+            request=request,
+            cursor_param=cursor_param,
+            position_field=position_field,
+        )
         self._pipeline = pipeline
 
     async def __aiter__(self) -> AsyncIterator[ItemT]:
@@ -170,7 +178,7 @@ class AsyncPage(_Page[ItemT]):
             self._next_request(),
             type(self._body),
             cursor_param=self._cursor_param,
-            style=self._style,
+            position_field=self._position_field,
         )
 
     async def iter_pages(self) -> AsyncIterator[AsyncPage[ItemT]]:

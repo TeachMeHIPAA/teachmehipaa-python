@@ -32,8 +32,9 @@ class PartnersOrganizations(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> PartnerOrganizationCreated:
-        """Create a customer organization
+        """Create a customer organization.
 
         Creates an organization for a customer with your app already connected, and
         emails its administrator a link to sign in. The organization has no seats until
@@ -51,6 +52,10 @@ class PartnersOrganizations(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -69,6 +74,7 @@ class PartnersOrganizations(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             PartnerOrganizationCreated,
@@ -83,8 +89,9 @@ class PartnersOrganizations(SyncAPIResource):
         cursor: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[PartnerOrganization]:
-        """List all customer organizations
+        """List all customer organizations.
 
         Returns a list of the organizations you created. `grantActive` is `false` once a
         customer disconnects your app. Requires the `partner:orgs:read` scope.
@@ -96,6 +103,10 @@ class PartnersOrganizations(SyncAPIResource):
             cursor: The `nextCursor` from the previous page.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -104,11 +115,12 @@ class PartnersOrganizations(SyncAPIResource):
                 path_params={"partnerId": partner_id},
                 query={"limit": limit, "cursor": cursor},
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             PartnerOrganizationsPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
 
@@ -125,8 +137,9 @@ class AsyncPartnersOrganizations(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> PartnerOrganizationCreated:
-        """Create a customer organization
+        """Create a customer organization.
 
         Creates an organization for a customer with your app already connected, and
         emails its administrator a link to sign in. The organization has no seats until
@@ -144,6 +157,10 @@ class AsyncPartnersOrganizations(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -162,6 +179,7 @@ class AsyncPartnersOrganizations(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             PartnerOrganizationCreated,
@@ -176,8 +194,9 @@ class AsyncPartnersOrganizations(AsyncAPIResource):
         cursor: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[PartnerOrganization]:
-        """List all customer organizations
+        """List all customer organizations.
 
         Returns a list of the organizations you created. `grantActive` is `false` once a
         customer disconnects your app. Requires the `partner:orgs:read` scope.
@@ -189,6 +208,10 @@ class AsyncPartnersOrganizations(AsyncAPIResource):
             cursor: The `nextCursor` from the previous page.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -197,11 +220,12 @@ class AsyncPartnersOrganizations(AsyncAPIResource):
                 path_params={"partnerId": partner_id},
                 query={"limit": limit, "cursor": cursor},
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             PartnerOrganizationsPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
 
@@ -219,8 +243,9 @@ class Partners(SyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Partner:
-        """Retrieve your partner account
+        """Retrieve your partner account.
 
         Retrieves your partner account, including how many organizations you can create.
         Requires the `partner:orgs:read` scope.
@@ -230,6 +255,10 @@ class Partners(SyncAPIResource):
                 issued for.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -237,7 +266,9 @@ class Partners(SyncAPIResource):
                 "/partners/{partnerId}",
                 path_params={"partnerId": partner_id},
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Partner,
         )
@@ -257,8 +288,9 @@ class AsyncPartners(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Partner:
-        """Retrieve your partner account
+        """Retrieve your partner account.
 
         Retrieves your partner account, including how many organizations you can create.
         Requires the `partner:orgs:read` scope.
@@ -268,6 +300,10 @@ class AsyncPartners(AsyncAPIResource):
                 issued for.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -275,7 +311,9 @@ class AsyncPartners(AsyncAPIResource):
                 "/partners/{partnerId}",
                 path_params={"partnerId": partner_id},
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Partner,
         )

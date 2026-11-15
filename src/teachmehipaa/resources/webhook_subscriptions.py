@@ -40,8 +40,9 @@ class WebhookSubscriptions(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscriptionCreated:
-        """Create a webhook subscription
+        """Create a webhook subscription.
 
         Subscribes an HTTPS endpoint to event types and creates its signing secret.
         Requires the `webhooks:manage` or `org:admin` scope.
@@ -56,6 +57,10 @@ class WebhookSubscriptions(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -74,6 +79,7 @@ class WebhookSubscriptions(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             WebhookSubscriptionCreated,
@@ -86,8 +92,9 @@ class WebhookSubscriptions(SyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> None:
-        """Delete a webhook subscription
+        """Delete a webhook subscription.
 
         Deletes a webhook subscription and its signing secret. Requires the
         `webhooks:manage` or `org:admin` scope.
@@ -98,6 +105,10 @@ class WebhookSubscriptions(SyncAPIResource):
             subscription_id: The webhook subscription id.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         self._pipeline.request_empty(
             ApiRequest(
@@ -105,7 +116,9 @@ class WebhookSubscriptions(SyncAPIResource):
                 "/organizations/{orgId}/webhook-subscriptions/{subscriptionId}",
                 path_params={"subscriptionId": subscription_id},
                 org_scoped=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             )
         )
 
@@ -116,8 +129,9 @@ class WebhookSubscriptions(SyncAPIResource):
         cursor: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[WebhookSubscription]:
-        """List all webhook subscriptions
+        """List all webhook subscriptions.
 
         Returns a list of the organization's webhook subscriptions. Signing secrets are
         never returned. Requires the `webhooks:manage` or `org:admin` scope.
@@ -127,6 +141,10 @@ class WebhookSubscriptions(SyncAPIResource):
             cursor: The `nextCursor` from the previous page.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -135,11 +153,12 @@ class WebhookSubscriptions(SyncAPIResource):
                 query={"limit": limit, "cursor": cursor},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             WebhookSubscriptionsPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     def redrive(
@@ -150,8 +169,9 @@ class WebhookSubscriptions(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Operation[WebhookDeliveryResult]:
-        """Retry failed deliveries
+        """Retry failed deliveries.
 
         Delivers the subscription's failed events again. Requires the `webhooks:manage`
         or `org:admin` scope.
@@ -162,6 +182,10 @@ class WebhookSubscriptions(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return request_operation(
             self._pipeline,
@@ -176,6 +200,7 @@ class WebhookSubscriptions(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             Operation[WebhookDeliveryResult],
@@ -190,6 +215,7 @@ class WebhookSubscriptions(SyncAPIResource):
         if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscription: ...
 
     @overload
@@ -201,6 +227,7 @@ class WebhookSubscriptions(SyncAPIResource):
         if_none_match: ETagSource,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscription | NotModified: ...
 
     def retrieve(
@@ -211,8 +238,9 @@ class WebhookSubscriptions(SyncAPIResource):
         if_none_match: ETagSource | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscription | NotModified:
-        """Retrieve a webhook subscription
+        """Retrieve a webhook subscription.
 
         Retrieves a webhook subscription. Requires the `webhooks:manage` or `org:admin`
         scope.
@@ -224,6 +252,10 @@ class WebhookSubscriptions(SyncAPIResource):
                 `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_conditional(
             ApiRequest(
@@ -233,7 +265,9 @@ class WebhookSubscriptions(SyncAPIResource):
                 if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             WebhookSubscription,
         )
@@ -246,8 +280,9 @@ class WebhookSubscriptions(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Operation[WebhookDeliveryResult]:
-        """Send a test event
+        """Send a test event.
 
         Sends a signed test delivery to the subscription's endpoint, so you can check
         your verifier. Requires the `webhooks:manage` or `org:admin` scope.
@@ -258,6 +293,10 @@ class WebhookSubscriptions(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return request_operation(
             self._pipeline,
@@ -272,6 +311,7 @@ class WebhookSubscriptions(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             Operation[WebhookDeliveryResult],
@@ -290,8 +330,9 @@ class WebhookSubscriptions(SyncAPIResource):
         seats_low_threshold: int | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscription:
-        """Update a webhook subscription
+        """Update a webhook subscription.
 
         Updates a webhook subscription; parameters you don't send are left unchanged.
         Send its current `ETag` in `If-Match`. The signing secret doesn't change.
@@ -310,6 +351,10 @@ class WebhookSubscriptions(SyncAPIResource):
                 number.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -326,7 +371,9 @@ class WebhookSubscriptions(SyncAPIResource):
                 content_type="application/merge-patch+json",
                 if_match=if_match,
                 org_scoped=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             WebhookSubscription,
         )
@@ -343,8 +390,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscriptionCreated:
-        """Create a webhook subscription
+        """Create a webhook subscription.
 
         Subscribes an HTTPS endpoint to event types and creates its signing secret.
         Requires the `webhooks:manage` or `org:admin` scope.
@@ -359,6 +407,10 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -377,6 +429,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             WebhookSubscriptionCreated,
@@ -389,8 +442,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         *,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> None:
-        """Delete a webhook subscription
+        """Delete a webhook subscription.
 
         Deletes a webhook subscription and its signing secret. Requires the
         `webhooks:manage` or `org:admin` scope.
@@ -401,6 +455,10 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
             subscription_id: The webhook subscription id.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         await self._pipeline.request_empty(
             ApiRequest(
@@ -408,7 +466,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 "/organizations/{orgId}/webhook-subscriptions/{subscriptionId}",
                 path_params={"subscriptionId": subscription_id},
                 org_scoped=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             )
         )
 
@@ -419,8 +479,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         cursor: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[WebhookSubscription]:
-        """List all webhook subscriptions
+        """List all webhook subscriptions.
 
         Returns a list of the organization's webhook subscriptions. Signing secrets are
         never returned. Requires the `webhooks:manage` or `org:admin` scope.
@@ -430,6 +491,10 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
             cursor: The `nextCursor` from the previous page.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -438,11 +503,12 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 query={"limit": limit, "cursor": cursor},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             WebhookSubscriptionsPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     async def redrive(
@@ -453,8 +519,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncOperation[WebhookDeliveryResult]:
-        """Retry failed deliveries
+        """Retry failed deliveries.
 
         Delivers the subscription's failed events again. Requires the `webhooks:manage`
         or `org:admin` scope.
@@ -465,6 +532,10 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await async_request_operation(
             self._pipeline,
@@ -479,6 +550,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             AsyncOperation[WebhookDeliveryResult],
@@ -493,6 +565,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         if_none_match: NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscription: ...
 
     @overload
@@ -504,6 +577,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         if_none_match: ETagSource,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscription | NotModified: ...
 
     async def retrieve(
@@ -514,8 +588,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         if_none_match: ETagSource | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscription | NotModified:
-        """Retrieve a webhook subscription
+        """Retrieve a webhook subscription.
 
         Retrieves a webhook subscription. Requires the `webhooks:manage` or `org:admin`
         scope.
@@ -527,6 +602,10 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 `NotModified`.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_conditional(
             ApiRequest(
@@ -536,7 +615,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 if_none_match=if_none_match,
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             WebhookSubscription,
         )
@@ -549,8 +630,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncOperation[WebhookDeliveryResult]:
-        """Send a test event
+        """Send a test event.
 
         Sends a signed test delivery to the subscription's endpoint, so you can check
         your verifier. Requires the `webhooks:manage` or `org:admin` scope.
@@ -561,6 +643,10 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await async_request_operation(
             self._pipeline,
@@ -575,6 +661,7 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             AsyncOperation[WebhookDeliveryResult],
@@ -593,8 +680,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
         seats_low_threshold: int | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> WebhookSubscription:
-        """Update a webhook subscription
+        """Update a webhook subscription.
 
         Updates a webhook subscription; parameters you don't send are left unchanged.
         Send its current `ETag` in `If-Match`. The signing secret doesn't change.
@@ -613,6 +701,10 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 number.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -629,7 +721,9 @@ class AsyncWebhookSubscriptions(AsyncAPIResource):
                 content_type="application/merge-patch+json",
                 if_match=if_match,
                 org_scoped=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             WebhookSubscription,
         )

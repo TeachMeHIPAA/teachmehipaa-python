@@ -9,7 +9,7 @@ from typing import Protocol
 
 import httpx
 
-from ._auth import AccessToken, ClientCredentials
+from ._auth import AccessToken, ClientCredentials, require_text
 from ._config import DEFAULT_TIMEOUT, AppInfo, Environment, make_token_endpoint
 from ._errors import TokenStoreError
 from ._grant_exchange import (
@@ -17,7 +17,6 @@ from ._grant_exchange import (
     GrantExchange,
     async_exchange_grant,
     exchange_grant,
-    require_text,
 )
 
 
@@ -53,7 +52,7 @@ class AsyncTokenStore(Protocol):
 
 
 _REFRESH_GUIDANCE = ExchangeGuidance(
-    connection=(
+    network_failure=(
         "The Refresh token exchange was not retried, because replaying a "
         "Refresh token the endpoint may already have rotated revokes the "
         "Grant. If the next call fails with invalid_grant, re-run consent for "
@@ -61,8 +60,8 @@ _REFRESH_GUIDANCE = ExchangeGuidance(
     ),
     invalid_grant=(
         "The Grant was revoked, or its Refresh token was reused (presenting a "
-        "superseded Refresh token revokes the Grant). Re-run consent to "
-        "connect the Organization again."
+        "superseded Refresh token revokes the Grant). Re-run consent for "
+        "the Organization."
     ),
 )
 
@@ -86,10 +85,7 @@ class _GrantState:
         app_info: AppInfo | None,
         clock: Callable[[], float] | None,
     ) -> None:
-        self.credentials = ClientCredentials(
-            require_text(client_id, "client_id"),
-            require_text(client_secret, "client_secret"),
-        )
+        self.credentials = ClientCredentials.checked(client_id, client_secret)
         self.endpoint = make_token_endpoint(
             environment=environment,
             base_url=base_url,
@@ -157,7 +153,8 @@ class PartnerGrantTokenProvider:
             it from `token_store`.
         scopes: Narrows the Access token to these Scopes; it can never widen
             them.
-        environment: Which deployment the Partner app belongs to.
+        environment: Which deployment the Partner app belongs to. A client
+            given this provider must use the same Environment and base URL.
         base_url: Overrides the Environment's base URL.
         timeout: Seconds to wait for the token endpoint.
         app_info: Identifies your integration in the User-Agent.
@@ -194,6 +191,12 @@ class PartnerGrantTokenProvider:
         self._token_store = token_store
         self._http_client = http_client
         self._lock = threading.Lock()
+
+    @property
+    def base_url(self) -> str:
+        """Where this provider exchanges Refresh tokens. A client given this
+        provider must call the same base URL."""
+        return self._state.endpoint.base_url
 
     def access_token(self) -> str:
         with self._lock:
@@ -257,6 +260,12 @@ class AsyncPartnerGrantTokenProvider:
         self._token_store = token_store
         self._http_client = http_client
         self._lock = asyncio.Lock()
+
+    @property
+    def base_url(self) -> str:
+        """Where this provider exchanges Refresh tokens. A client given this
+        provider must call the same base URL."""
+        return self._state.endpoint.base_url
 
     async def access_token(self) -> str:
         async with self._lock:

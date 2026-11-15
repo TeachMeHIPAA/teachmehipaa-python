@@ -19,7 +19,7 @@ DEFAULT_INTERVAL = 2.0
 _T = TypeVar("_T")
 
 
-def _given(value: _T | None) -> _T | NotGiven:
+def _none_as_not_given(value: _T | None) -> _T | NotGiven:
     return NOT_GIVEN if value is None else value
 
 
@@ -172,8 +172,9 @@ class Events(EventsBase):
         stop: threading.Event | None = None,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> EventTail:
-        """Tail the event log
+        """Tail the event log.
 
         Iterates the organization's events oldest first, after `after`. The
         log's `next_cursor` is `None` at the current end, so the tail keeps
@@ -194,15 +195,19 @@ class Events(EventsBase):
             max_retries: Overrides the client's `max_retries` for each request.
             timeout: Overrides the client's `timeout` for each request, in
                 seconds.
+            request_id: Sent as `x-request-id` on every request the tail
+                makes, so its polls can be found in your logs and
+                TeachMeHIPAA's.
         """
 
         def events_after(position: str | None) -> SyncPage[Event]:
             return self.list(
-                after=_given(position),
-                type=_given(type),
-                limit=_given(limit),
+                after=_none_as_not_given(position),
+                type=_none_as_not_given(type),
+                limit=_none_as_not_given(limit),
                 max_retries=max_retries,
                 timeout=timeout,
+                request_id=request_id,
             )
 
         return EventTail(
@@ -227,8 +232,9 @@ class AsyncEvents(AsyncEventsBase):
         stop: asyncio.Event | None = None,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncEventTail:
-        """Tail the event log
+        """Tail the event log.
 
         Iterates the organization's events oldest first, after `after`. The
         log's `next_cursor` is `None` at the current end, so the tail keeps
@@ -250,15 +256,19 @@ class AsyncEvents(AsyncEventsBase):
             max_retries: Overrides the client's `max_retries` for each request.
             timeout: Overrides the client's `timeout` for each request, in
                 seconds.
+            request_id: Sent as `x-request-id` on every request the tail
+                makes, so its polls can be found in your logs and
+                TeachMeHIPAA's.
         """
 
         def events_after(position: str | None) -> Awaitable[AsyncPage[Event]]:
             return self.list(
-                after=_given(position),
-                type=_given(type),
-                limit=_given(limit),
+                after=_none_as_not_given(position),
+                type=_none_as_not_given(type),
+                limit=_none_as_not_given(limit),
                 max_retries=max_retries,
                 timeout=timeout,
+                request_id=request_id,
             )
 
         return AsyncEventTail(

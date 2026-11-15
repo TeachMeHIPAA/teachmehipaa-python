@@ -16,9 +16,10 @@ from typing import TYPE_CHECKING, Annotated, Any, Generic, Literal, TypeAlias
 import pydantic
 from typing_extensions import TypeVar
 
-from ._core._errors import FieldError, TeachMeHipaaError
+from ._core._errors import FieldError, TeachMeHipaaError, problem_message
 from ._core._models import BaseModel
-from ._core._request import ApiRequest
+from ._core._request import ApiRequest, RequestOptions
+from ._core._sentinel import NOT_GIVEN, NotGiven
 from ._core._unions import UNKNOWN_VARIANT, by_property
 from .types._models import Operation as OperationModel
 
@@ -59,7 +60,7 @@ def poll_delay(interval: float, poll_number: int) -> float:
     return max(interval, ceiling * (0.5 + random.random() / 2))  # noqa: S311
 
 
-def _retrieval(name: str) -> ApiRequest:
+def _retrieval(name: str, request_id: str | NotGiven) -> ApiRequest:
     # The same call as the generated `operations.retrieve`.
     return ApiRequest(
         "GET",
@@ -67,6 +68,7 @@ def _retrieval(name: str) -> ApiRequest:
         path_params={"operationId": operation_id_from_name(name)},
         org_scoped=True,
         retry_safe=True,
+        options=RequestOptions(request_id=request_id),
     )
 
 
@@ -135,6 +137,15 @@ class _OperationBase(OperationModel, Generic[ResponseT]):
     response: ResponseT | None = None
     """The result, once `done` is `true`."""
 
+    def export_result(self) -> ExportResult:
+        """The CSV file of a done export Operation.
+
+        Raises:
+            OperationFailedError: The export failed.
+            ValueError: The Operation is not done, or is not an export.
+        """
+        return _export_result(self)
+
 
 class Operation(_OperationBase[ResponseT], Generic[ResponseT]):
     """An Operation returned by `TeachMeHipaa`.
@@ -146,23 +157,19 @@ class Operation(_OperationBase[ResponseT], Generic[ResponseT]):
 
     _pipeline: SyncPipeline | None = pydantic.PrivateAttr(default=None)
 
-    def export_result(self) -> ExportResult:
-        """The CSV file of a done export Operation.
-
-        Raises:
-            OperationFailedError: The export failed.
-            ValueError: The Operation is not done, or is not an export.
-        """
-        return _export_result(self)
-
     def wait(
-        self, *, timeout: float = DEFAULT_TIMEOUT, interval: float = DEFAULT_INTERVAL
+        self,
+        *,
+        timeout: float = DEFAULT_TIMEOUT,
+        interval: float = DEFAULT_INTERVAL,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Operation[ResponseT]:
         """Poll until the Operation is done and return its final state.
 
         An Operation that is already done returns at once, without a request.
         Polls back off from `interval` seconds to 10 s; the last one lands on
-        the `timeout`, in seconds.
+        the `timeout`, in seconds. `request_id` is sent as `x-request-id` on
+        every poll.
 
         Raises:
             OperationFailedError: The Operation finished with an error.
@@ -181,7 +188,9 @@ class Operation(_OperationBase[ResponseT], Generic[ResponseT]):
                 raise _timed_out(latest, timeout)
             delay = poll_delay(interval, poll_number)
             pipeline.sleep(min(delay, remaining))
-            latest = request_operation(pipeline, _retrieval(self.name), type(self))
+            latest = request_operation(
+                pipeline, _retrieval(self.name, request_id), type(self)
+            )
             if latest.done:
                 return _settled(latest)
             if delay >= remaining:
@@ -194,23 +203,19 @@ class AsyncOperation(_OperationBase[ResponseT], Generic[ResponseT]):
 
     _pipeline: AsyncPipeline | None = pydantic.PrivateAttr(default=None)
 
-    def export_result(self) -> ExportResult:
-        """The CSV file of a done export Operation.
-
-        Raises:
-            OperationFailedError: The export failed.
-            ValueError: The Operation is not done, or is not an export.
-        """
-        return _export_result(self)
-
     async def wait(
-        self, *, timeout: float = DEFAULT_TIMEOUT, interval: float = DEFAULT_INTERVAL
+        self,
+        *,
+        timeout: float = DEFAULT_TIMEOUT,
+        interval: float = DEFAULT_INTERVAL,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncOperation[ResponseT]:
         """Poll until the Operation is done and return its final state.
 
         An Operation that is already done returns at once, without a request.
         Polls back off from `interval` seconds to 10 s; the last one lands on
         the `timeout`, in seconds. Cancelling the task stops waiting.
+        `request_id` is sent as `x-request-id` on every poll.
 
         Raises:
             OperationFailedError: The Operation finished with an error.
@@ -230,7 +235,7 @@ class AsyncOperation(_OperationBase[ResponseT], Generic[ResponseT]):
             delay = poll_delay(interval, poll_number)
             await pipeline.sleep(min(delay, remaining))
             latest = await async_request_operation(
-                pipeline, _retrieval(self.name), type(self)
+                pipeline, _retrieval(self.name, request_id), type(self)
             )
             if latest.done:
                 return _settled(latest)
@@ -247,7 +252,7 @@ class OperationFailedError(TeachMeHipaaError):
         self,
         message: str,
         *,
-        operation: Operation[Any] | AsyncOperation[Any],
+        operation: _OperationBase[Any],
         **fields: Any,
     ) -> None:
         super().__init__(message, **fields)
@@ -270,7 +275,7 @@ class OperationTimeoutError(TeachMeHipaaError):
 
 
 PipelineT = TypeVar("PipelineT")
-OperationT = TypeVar("OperationT", bound="Operation[Any] | AsyncOperation[Any]")
+OperationT = TypeVar("OperationT", bound="_OperationBase[Any]")
 
 
 def _bound(pipeline: PipelineT | None, operation: _OperationBase[Any]) -> PipelineT:
@@ -288,10 +293,12 @@ def _settled(operation: OperationT) -> OperationT:
     if problem is None:
         return operation
     raise OperationFailedError(
-        problem.detail
-        or problem.title
-        or problem.code
-        or f"Operation {operation.name} failed",
+        problem_message(
+            problem.detail,
+            problem.title,
+            problem.code,
+            f"Operation {operation.name} failed",
+        ),
         operation=operation,
         status=problem.status,
         code=problem.code,
@@ -306,7 +313,7 @@ def _settled(operation: OperationT) -> OperationT:
     )
 
 
-def _export_result(operation: Operation[Any] | AsyncOperation[Any]) -> ExportResult:
+def _export_result(operation: _OperationBase[Any]) -> ExportResult:
     if not operation.done:
         raise ValueError(f"Operation {operation.name} is not done; call wait() first")
     # The spec says only that an export's `response` "holds the CSV file". The

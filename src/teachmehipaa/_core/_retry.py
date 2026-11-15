@@ -18,6 +18,7 @@ from ._errors import (
     connection_error,
     parse_retry_after,
 )
+from ._models import request_id_of
 
 logger = logging.getLogger("teachmehipaa")
 
@@ -79,7 +80,7 @@ def log_response(response: httpx.Response, started: float) -> None:
         "path": response.request.url.path,
         "status": response.status_code,
         "latency_ms": (time.perf_counter() - started) * 1000,
-        "request_id": response.headers.get("x-request-id"),
+        "request_id": request_id_of(response.headers),
     }
     logger.debug(
         "%(method)s %(path)s %(status)d in %(latency_ms).0f ms (request id "

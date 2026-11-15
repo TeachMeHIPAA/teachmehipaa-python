@@ -5,13 +5,14 @@ import time
 from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from types import MappingProxyType
-from typing import Literal, TypedDict, get_args
+from typing import Literal, TypedDict, TypeVar, get_args
 
 import httpx
 
 from .._version import __version__
 
 Environment = Literal["live", "sandbox"]
+T = TypeVar("T")
 
 ENVIRONMENT_BASE_URLS: Mapping[Environment, str] = MappingProxyType(
     {
@@ -19,6 +20,8 @@ ENVIRONMENT_BASE_URLS: Mapping[Environment, str] = MappingProxyType(
         "sandbox": "https://api-teachmehipaa-dev.web.app/v1",
     }
 )
+
+TOKEN_PATH = "/auth/token"  # noqa: S105 -- a path, not a secret
 
 DEFAULT_MAX_RETRIES = 2
 # The same in every TeachMeHIPAA SDK, and Stripe's default.
@@ -52,10 +55,14 @@ class ClientConfig:
 class TokenEndpoint:
     """How to reach the OAuth token endpoint without a client."""
 
-    url: str
+    base_url: str
     user_agent: str
     timeout: httpx.Timeout
     clock: Callable[[], float]
+
+    @property
+    def url(self) -> str:
+        return self.base_url + TOKEN_PATH
 
 
 def make_token_endpoint(
@@ -67,7 +74,7 @@ def make_token_endpoint(
     clock: Callable[[], float] | None,
 ) -> TokenEndpoint:
     return TokenEndpoint(
-        url=f"{_base_url(environment, base_url)}/auth/token",
+        base_url=resolve_base_url(environment, base_url),
         user_agent=_user_agent(app_info),
         timeout=httpx.Timeout(timeout),
         clock=clock or time.monotonic,
@@ -89,7 +96,7 @@ def make_config(
         raise ValueError("max_retries must be zero or more")
     return ClientConfig(
         environment=environment,
-        base_url=_base_url(environment, base_url),
+        base_url=resolve_base_url(environment, base_url),
         organization_id=organization_id,
         scopes=None if scopes is None else tuple(scopes),
         max_retries=max_retries,
@@ -99,12 +106,19 @@ def make_config(
     )
 
 
-def _base_url(environment: Environment, base_url: str | None) -> str:
+def for_environment(values: Mapping[Environment, T], environment: Environment) -> T:
+    """`environment`'s entry in `values`, refusing a name that isn't an
+    Environment."""
     if environment not in get_args(Environment):
         raise ValueError(
             f"environment must be 'live' or 'sandbox', not {environment!r}"
         )
-    return (base_url or ENVIRONMENT_BASE_URLS[environment]).rstrip("/")
+    return values[environment]
+
+
+def resolve_base_url(environment: Environment, base_url: str | None) -> str:
+    environment_url = for_environment(ENVIRONMENT_BASE_URLS, environment)
+    return (base_url or environment_url).rstrip("/")
 
 
 def _user_agent(app_info: AppInfo | None) -> str:

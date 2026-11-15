@@ -46,8 +46,9 @@ class Learners(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Operation:
-        """Create many learners
+        """Create many learners.
 
         Creates or retrieves up to 500 learners in one request. Each item works like
         creating one learner and succeeds or fails on its own.
@@ -63,6 +64,10 @@ class Learners(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return request_operation(
             self._pipeline,
@@ -77,6 +82,7 @@ class Learners(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             Operation,
@@ -94,8 +100,9 @@ class Learners(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> LearnerWriteResult:
-        """Create a learner
+        """Create a learner.
 
         Adds a person to the organization and invites them to a course in one call,
         using one seat. If the email or `externalId` already belongs to an active
@@ -118,6 +125,10 @@ class Learners(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_write_result(
             ApiRequest(
@@ -138,6 +149,7 @@ class Learners(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             LearnerWriteResult,
@@ -151,8 +163,9 @@ class Learners(SyncAPIResource):
         course_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> LearnerLaunchLink:
-        """Create a launch link
+        """Create a launch link.
 
         Creates a link that opens the course with the learner already signed in, for a
         "Start training" button in your product. The link works once and expires after 5
@@ -164,6 +177,10 @@ class Learners(SyncAPIResource):
             course_id: The course. Defaults to the organization's default course.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -173,7 +190,9 @@ class Learners(SyncAPIResource):
                 query={"courseId": course_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             LearnerLaunchLink,
         )
@@ -187,8 +206,9 @@ class Learners(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Operation:
-        """Export learners
+        """Export learners.
 
         Exports the organization's learners in one course as CSV, optionally only those
         with one `status`. Requires the `learners:read` scope.
@@ -202,6 +222,10 @@ class Learners(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return request_operation(
             self._pipeline,
@@ -216,6 +240,7 @@ class Learners(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             Operation,
@@ -232,8 +257,9 @@ class Learners(SyncAPIResource):
         course_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> SyncPage[Learner]:
-        """List all learners
+        """List all learners.
 
         Returns a list of the organization's learners in one course, with each learner's
         status, dates and current certificate. Filter by `status`, or find one learner
@@ -247,6 +273,10 @@ class Learners(SyncAPIResource):
             course_id: The course. Defaults to the organization's default course.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_page(
             ApiRequest(
@@ -262,11 +292,12 @@ class Learners(SyncAPIResource):
                 },
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             LearnersPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     def offboard(
@@ -279,8 +310,9 @@ class Learners(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Learner:
-        """Offboard a learner
+        """Offboard a learner.
 
         Removes a learner from the organization. A learner who hasn't started has their
         invite cancelled and the seat returned; a learner who has started keeps their
@@ -296,6 +328,10 @@ class Learners(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -311,6 +347,7 @@ class Learners(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             Learner,
@@ -325,8 +362,9 @@ class Learners(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> LearnerRemindAccepted:
-        """Remind a learner
+        """Remind a learner.
 
         Emails the learner a reminder: the invite again if they haven't started, or a
         nudge to finish if they have.
@@ -338,6 +376,10 @@ class Learners(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -352,6 +394,7 @@ class Learners(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             LearnerRemindAccepted,
@@ -365,8 +408,9 @@ class Learners(SyncAPIResource):
         course_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Learner:
-        """Retrieve a learner
+        """Retrieve a learner.
 
         Retrieves a learner's status in one course.
 
@@ -375,6 +419,10 @@ class Learners(SyncAPIResource):
             course_id: The course. Defaults to the organization's default course.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -384,7 +432,9 @@ class Learners(SyncAPIResource):
                 query={"courseId": course_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Learner,
         )
@@ -400,8 +450,9 @@ class Learners(SyncAPIResource):
         course_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Learner:
-        """Update a learner
+        """Update a learner.
 
         Updates a learner's `name` or `externalId`; parameters you don't send are left
         unchanged. Send the body as `application/merge-patch+json` with the learner's
@@ -417,6 +468,10 @@ class Learners(SyncAPIResource):
             course_id: The course. Defaults to the organization's default course.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request(
             ApiRequest(
@@ -428,7 +483,9 @@ class Learners(SyncAPIResource):
                 query={"courseId": course_id},
                 if_match=if_match,
                 org_scoped=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Learner,
         )
@@ -446,8 +503,9 @@ class Learners(SyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> LearnerWriteResult:
-        """Create or retrieve a learner by your id
+        """Create or retrieve a learner by your id.
 
         Makes sure a learner exists for your own id. Creates and invites the learner the
         first time, and returns them on every later call, so a sync job can replay it
@@ -469,6 +527,10 @@ class Learners(SyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return self._pipeline.request_write_result(
             ApiRequest(
@@ -489,6 +551,7 @@ class Learners(SyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             LearnerWriteResult,
@@ -505,8 +568,9 @@ class AsyncLearners(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncOperation:
-        """Create many learners
+        """Create many learners.
 
         Creates or retrieves up to 500 learners in one request. Each item works like
         creating one learner and succeeds or fails on its own.
@@ -522,6 +586,10 @@ class AsyncLearners(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await async_request_operation(
             self._pipeline,
@@ -536,6 +604,7 @@ class AsyncLearners(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             AsyncOperation,
@@ -553,8 +622,9 @@ class AsyncLearners(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> LearnerWriteResult:
-        """Create a learner
+        """Create a learner.
 
         Adds a person to the organization and invites them to a course in one call,
         using one seat. If the email or `externalId` already belongs to an active
@@ -577,6 +647,10 @@ class AsyncLearners(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_write_result(
             ApiRequest(
@@ -597,6 +671,7 @@ class AsyncLearners(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             LearnerWriteResult,
@@ -610,8 +685,9 @@ class AsyncLearners(AsyncAPIResource):
         course_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> LearnerLaunchLink:
-        """Create a launch link
+        """Create a launch link.
 
         Creates a link that opens the course with the learner already signed in, for a
         "Start training" button in your product. The link works once and expires after 5
@@ -623,6 +699,10 @@ class AsyncLearners(AsyncAPIResource):
             course_id: The course. Defaults to the organization's default course.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -632,7 +712,9 @@ class AsyncLearners(AsyncAPIResource):
                 query={"courseId": course_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             LearnerLaunchLink,
         )
@@ -646,8 +728,9 @@ class AsyncLearners(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncOperation:
-        """Export learners
+        """Export learners.
 
         Exports the organization's learners in one course as CSV, optionally only those
         with one `status`. Requires the `learners:read` scope.
@@ -661,6 +744,10 @@ class AsyncLearners(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await async_request_operation(
             self._pipeline,
@@ -675,6 +762,7 @@ class AsyncLearners(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             AsyncOperation,
@@ -691,8 +779,9 @@ class AsyncLearners(AsyncAPIResource):
         course_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> AsyncPage[Learner]:
-        """List all learners
+        """List all learners.
 
         Returns a list of the organization's learners in one course, with each learner's
         status, dates and current certificate. Filter by `status`, or find one learner
@@ -706,6 +795,10 @@ class AsyncLearners(AsyncAPIResource):
             course_id: The course. Defaults to the organization's default course.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_page(
             ApiRequest(
@@ -721,11 +814,12 @@ class AsyncLearners(AsyncAPIResource):
                 },
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             LearnersPage,
             cursor_param="cursor",
-            style="cursor",
         )
 
     async def offboard(
@@ -738,8 +832,9 @@ class AsyncLearners(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Learner:
-        """Offboard a learner
+        """Offboard a learner.
 
         Removes a learner from the organization. A learner who hasn't started has their
         invite cancelled and the seat returned; a learner who has started keeps their
@@ -755,6 +850,10 @@ class AsyncLearners(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -770,6 +869,7 @@ class AsyncLearners(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             Learner,
@@ -784,8 +884,9 @@ class AsyncLearners(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> LearnerRemindAccepted:
-        """Remind a learner
+        """Remind a learner.
 
         Emails the learner a reminder: the invite again if they haven't started, or a
         nudge to finish if they have.
@@ -797,6 +898,10 @@ class AsyncLearners(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -811,6 +916,7 @@ class AsyncLearners(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             LearnerRemindAccepted,
@@ -824,8 +930,9 @@ class AsyncLearners(AsyncAPIResource):
         course_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Learner:
-        """Retrieve a learner
+        """Retrieve a learner.
 
         Retrieves a learner's status in one course.
 
@@ -834,6 +941,10 @@ class AsyncLearners(AsyncAPIResource):
             course_id: The course. Defaults to the organization's default course.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -843,7 +954,9 @@ class AsyncLearners(AsyncAPIResource):
                 query={"courseId": course_id},
                 org_scoped=True,
                 retry_safe=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Learner,
         )
@@ -859,8 +972,9 @@ class AsyncLearners(AsyncAPIResource):
         course_id: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> Learner:
-        """Update a learner
+        """Update a learner.
 
         Updates a learner's `name` or `externalId`; parameters you don't send are left
         unchanged. Send the body as `application/merge-patch+json` with the learner's
@@ -876,6 +990,10 @@ class AsyncLearners(AsyncAPIResource):
             course_id: The course. Defaults to the organization's default course.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request(
             ApiRequest(
@@ -887,7 +1005,9 @@ class AsyncLearners(AsyncAPIResource):
                 query={"courseId": course_id},
                 if_match=if_match,
                 org_scoped=True,
-                options=RequestOptions(max_retries=max_retries, timeout=timeout),
+                options=RequestOptions(
+                    max_retries=max_retries, timeout=timeout, request_id=request_id
+                ),
             ),
             Learner,
         )
@@ -905,8 +1025,9 @@ class AsyncLearners(AsyncAPIResource):
         idempotency_key: str | NotGiven = NOT_GIVEN,
         max_retries: int | NotGiven = NOT_GIVEN,
         timeout: float | httpx.Timeout | NotGiven = NOT_GIVEN,
+        request_id: str | NotGiven = NOT_GIVEN,
     ) -> LearnerWriteResult:
-        """Create or retrieve a learner by your id
+        """Create or retrieve a learner by your id.
 
         Makes sure a learner exists for your own id. Creates and invites the learner the
         first time, and returns them on every later call, so a sync job can replay it
@@ -928,6 +1049,10 @@ class AsyncLearners(AsyncAPIResource):
                 the same key.
             max_retries: Overrides the client's `max_retries` for this call.
             timeout: Overrides the client's `timeout` for this call, in seconds.
+            request_id: Sent as `x-request-id` on every attempt, so this call can be
+                found in your logs and TeachMeHIPAA's. The API echoes it on
+                `last_response` and on errors if it matches `^[A-Za-z0-9._-]{1,128}$`,
+                and replaces it otherwise.
         """
         return await self._pipeline.request_write_result(
             ApiRequest(
@@ -948,6 +1073,7 @@ class AsyncLearners(AsyncAPIResource):
                     max_retries=max_retries,
                     timeout=timeout,
                     idempotency_key=idempotency_key,
+                    request_id=request_id,
                 ),
             ),
             LearnerWriteResult,
