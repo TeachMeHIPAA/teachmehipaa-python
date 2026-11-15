@@ -6,6 +6,7 @@ from __future__ import annotations
 import asyncio
 import threading
 from base64 import b64encode
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
 from urllib.parse import quote_plus, urlencode
@@ -47,26 +48,43 @@ class AsyncTokenProvider(Protocol):
 
 @dataclass(frozen=True)
 class ClientCredentials:
+    """An API client's or a Partner app's id and secret."""
+
     client_id: str
     client_secret: str = field(repr=False)
 
-    def token_request(self, config: ClientConfig) -> httpx.Request:
+    def token_request(
+        self,
+        url: str,
+        form: Mapping[str, str],
+        *,
+        user_agent: str,
+        timeout: httpx.Timeout,
+    ) -> httpx.Request:
         # RFC 6749 §2.3.1: form-encode each half before base64.
         credentials = f"{quote_plus(self.client_id)}:{quote_plus(self.client_secret)}"
-        form = {"grant_type": "client_credentials"}
-        if config.scopes is not None:
-            form["scope"] = " ".join(config.scopes)
         return httpx.Request(
             "POST",
-            f"{config.base_url}/auth/token",
+            url,
             content=urlencode(form).encode(),
             headers={
                 "accept": "application/json",
                 "authorization": f"Basic {b64encode(credentials.encode()).decode()}",
                 "content-type": "application/x-www-form-urlencoded",
-                "user-agent": config.user_agent,
+                "user-agent": user_agent,
             },
-            extensions={"timeout": config.timeout.as_dict()},
+            extensions={"timeout": timeout.as_dict()},
+        )
+
+    def client_credentials_request(self, config: ClientConfig) -> httpx.Request:
+        form = {"grant_type": "client_credentials"}
+        if config.scopes is not None:
+            form["scope"] = " ".join(config.scopes)
+        return self.token_request(
+            f"{config.base_url}/auth/token",
+            form,
+            user_agent=config.user_agent,
+            timeout=config.timeout,
         )
 
 
@@ -108,7 +126,7 @@ class ClientCredentialsTokenProvider:
             if self._token is None or self._token.needs_refresh(self._config.clock()):
                 minted_at = self._config.clock()
                 response = self._sender.send(
-                    lambda: self._credentials.token_request(self._config),
+                    lambda: self._credentials.client_credentials_request(self._config),
                     oauth_error_from_response,
                     mint_retry_policy(self._config),
                 )
@@ -154,4 +172,44 @@ class AsyncClientCredentialsTokenProvider:
             self._token = None
 
     async def _token_request(self) -> httpx.Request:
-        return self._credentials.token_request(self._config)
+        return self._credentials.client_credentials_request(self._config)
+
+
+def _require_access_token(access_token: str) -> str:
+    if not isinstance(access_token, str) or not access_token.strip():
+        raise ValueError("StaticTokenProvider needs a non-empty Access token")
+    return access_token
+
+
+class StaticTokenProvider:
+    """Sends an Access token you obtained yourself, as is. It is never
+    renewed: once it expires or is revoked, calls raise
+    `AuthenticationError`."""
+
+    def __init__(self, access_token: str) -> None:
+        self._access_token = _require_access_token(access_token)
+
+    def __repr__(self) -> str:
+        return "StaticTokenProvider(...)"
+
+    def access_token(self) -> str:
+        return self._access_token
+
+    def invalidate(self, access_token: str) -> None:
+        """Nothing to drop: this provider can't get another token."""
+
+
+class AsyncStaticTokenProvider:
+    """The asyncio twin of `StaticTokenProvider`."""
+
+    def __init__(self, access_token: str) -> None:
+        self._access_token = _require_access_token(access_token)
+
+    def __repr__(self) -> str:
+        return "AsyncStaticTokenProvider(...)"
+
+    async def access_token(self) -> str:
+        return self._access_token
+
+    def invalidate(self, access_token: str) -> None:
+        """Nothing to drop: this provider can't get another token."""

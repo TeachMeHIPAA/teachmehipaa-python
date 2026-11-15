@@ -1,6 +1,13 @@
 """The official Python library for the TeachMeHIPAA Developer API."""
 
+from . import oauth
 from ._client import AsyncTeachMeHipaa, TeachMeHipaa
+from ._core._auth import (
+    AsyncStaticTokenProvider,
+    AsyncTokenProvider,
+    StaticTokenProvider,
+    TokenProvider,
+)
 from ._core._config import AppInfo, Environment
 from ._core._errors import (
     APIConnectionError,
@@ -17,6 +24,7 @@ from ._core._errors import (
     PreconditionFailedError,
     RateLimitError,
     TeachMeHipaaError,
+    TokenStoreError,
     WebhookSignatureError,
     WebhookSignatureErrorCode,
 )
@@ -30,6 +38,12 @@ from ._core._models import (
     NotModified,
 )
 from ._core._pagination import AsyncPage, SyncPage
+from ._core._partner_grant import (
+    AsyncPartnerGrantTokenProvider,
+    AsyncTokenStore,
+    PartnerGrantTokenProvider,
+    TokenStore,
+)
 from ._core._sentinel import NOT_GIVEN, NotGiven
 from ._extensions.events import AsyncEventTail, EventTail
 from ._operations import (
@@ -58,7 +72,11 @@ __all__ = [
     "AsyncEventTail",
     "AsyncOperation",
     "AsyncPage",
+    "AsyncPartnerGrantTokenProvider",
+    "AsyncStaticTokenProvider",
     "AsyncTeachMeHipaa",
+    "AsyncTokenProvider",
+    "AsyncTokenStore",
     "AuthenticationError",
     "BinaryResponse",
     "BinaryStream",
@@ -79,12 +97,17 @@ __all__ = [
     "Operation",
     "OperationFailedError",
     "OperationTimeoutError",
+    "PartnerGrantTokenProvider",
     "PermissionDeniedError",
     "PreconditionFailedError",
     "RateLimitError",
+    "StaticTokenProvider",
     "SyncPage",
     "TeachMeHipaa",
     "TeachMeHipaaError",
+    "TokenProvider",
+    "TokenStore",
+    "TokenStoreError",
     "UnknownWebhookDeliveryResult",
     "Webhook",
     "WebhookDeliveryFailed",
@@ -94,5 +117,6 @@ __all__ = [
     "WebhookSignatureError",
     "WebhookSignatureErrorCode",
     "__version__",
+    "oauth",
     "operation_id_from_name",
 ]

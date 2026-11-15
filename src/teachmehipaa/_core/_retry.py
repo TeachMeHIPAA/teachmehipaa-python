@@ -22,8 +22,10 @@ MAX_RETRY_DELAY = 5.0
 MAX_RETRY_AFTER = 60.0
 
 ErrorMapper = Callable[[httpx.Response], TeachMeHipaaError]
-# Told which request was refused so the token it carried can be dropped.
-Replay = Callable[[httpx.Request], None]
+# Told which request was refused so the token it carried can be dropped;
+# answers whether a replay could succeed, which it can't with the same token.
+Replay = Callable[[httpx.Request], bool]
+AsyncReplay = Callable[[httpx.Request], Awaitable[bool]]
 
 
 @dataclass(frozen=True)
@@ -109,9 +111,9 @@ class SyncSender:
             # A token revoked mid-flight earns one fresh token and a replay,
             # outside the retry budget: it says nothing about the API's health.
             if replay is not None and not replayed and is_unauthorized(error):
-                replay(request)
                 replayed = True
-                continue
+                if replay(request):
+                    continue
             delay = _next_delay(policy, retries, error)
             if delay is None:
                 raise error
@@ -133,7 +135,7 @@ class AsyncSender:
         make_request: Callable[[], Awaitable[httpx.Request]],
         map_error: ErrorMapper,
         policy: RetryPolicy,
-        replay: Replay | None = None,
+        replay: AsyncReplay | None = None,
         *,
         stream: bool = False,
     ) -> httpx.Response:
@@ -159,9 +161,9 @@ class AsyncSender:
             # A token revoked mid-flight earns one fresh token and a replay,
             # outside the retry budget: it says nothing about the API's health.
             if replay is not None and not replayed and is_unauthorized(error):
-                replay(request)
                 replayed = True
-                continue
+                if await replay(request):
+                    continue
             delay = _next_delay(policy, retries, error)
             if delay is None:
                 raise error

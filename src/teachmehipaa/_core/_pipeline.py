@@ -6,7 +6,6 @@ from __future__ import annotations
 
 import asyncio
 import threading
-from collections.abc import Callable
 
 import httpx
 from pydantic import TypeAdapter
@@ -33,7 +32,7 @@ from ._request import (
     read_union,
     read_write_result,
 )
-from ._retry import AsyncSender, Replay, RetryPolicy, SyncSender
+from ._retry import AsyncReplay, AsyncSender, Replay, RetryPolicy, SyncSender
 
 
 def _retry_policy(config: ClientConfig, api_request: ApiRequest) -> RetryPolicy:
@@ -45,13 +44,33 @@ def _retry_policy(config: ClientConfig, api_request: ApiRequest) -> RetryPolicy:
     )
 
 
-def _replay(
-    api_request: ApiRequest, invalidate: Callable[[str], None]
-) -> Replay | None:
+def _replay(api_request: ApiRequest, tokens: TokenProvider) -> Replay | None:
     # A public endpoint's 401 can't be fixed by a fresh token.
     if not api_request.authenticated:
         return None
-    return lambda refused: invalidate(bearer_token(refused))
+
+    def replay(refused: httpx.Request) -> bool:
+        refused_token = bearer_token(refused)
+        tokens.invalidate(refused_token)
+        # A provider that can't renew (a static token) hands back the same
+        # token, which the API would only refuse again.
+        return tokens.access_token() != refused_token
+
+    return replay
+
+
+def _async_replay(
+    api_request: ApiRequest, tokens: AsyncTokenProvider
+) -> AsyncReplay | None:
+    if not api_request.authenticated:
+        return None
+
+    async def replay(refused: httpx.Request) -> bool:
+        refused_token = bearer_token(refused)
+        tokens.invalidate(refused_token)
+        return await tokens.access_token() != refused_token
+
+    return replay
 
 
 class SyncPipeline:
@@ -149,7 +168,7 @@ class SyncPipeline:
             ),
             error_from_response,
             _retry_policy(self.config, api_request),
-            replay=_replay(api_request, self._tokens.invalidate),
+            replay=_replay(api_request, self._tokens),
             stream=stream,
         )
 
@@ -271,7 +290,7 @@ class AsyncPipeline:
             make_request,
             error_from_response,
             _retry_policy(self.config, api_request),
-            replay=_replay(api_request, self._tokens.invalidate),
+            replay=_async_replay(api_request, self._tokens),
             stream=stream,
         )
 

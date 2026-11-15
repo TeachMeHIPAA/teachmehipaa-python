@@ -111,6 +111,11 @@ class OAuthError(TeachMeHipaaError):
     `detail` its `error_description`."""
 
 
+class TokenStoreError(TeachMeHipaaError):
+    """A Partner Grant's token store failed to load or save a Refresh token.
+    The store's own exception is the `__cause__`. Never carries the token."""
+
+
 WebhookSignatureErrorCode: TypeAlias = Literal[
     "missing_header",
     "invalid_timestamp",

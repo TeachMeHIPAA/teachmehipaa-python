@@ -18,6 +18,51 @@ with TeachMeHipaa(
 
 `AsyncTeachMeHipaa` has the same surface with `await`.
 
+## Partner apps
+
+Send the Organization admin to the consent URL, then exchange the code from
+the redirect once. Keep the code verifier and state server-side.
+
+```python
+from teachmehipaa import PartnerGrantTokenProvider, TeachMeHipaa, oauth
+
+pkce = oauth.create_pkce_pair()
+state = oauth.create_state()
+url = oauth.authorize_url(
+    client_id="app_...",
+    redirect_uri="https://example.com/oauth/callback",
+    scopes=["learners:read", "learners:write"],
+    state=state,
+    code_challenge=pkce.code_challenge,
+)
+
+# On the redirect, after checking its state matches:
+grant = oauth.exchange_code(
+    client_id="app_...",
+    client_secret="tmh_as_...",
+    code=code,
+    redirect_uri="https://example.com/oauth/callback",
+    code_verifier=pkce.code_verifier,
+)
+store.save(grant.refresh_token)
+```
+
+A Grant's client takes a token provider and your token store, an object with
+`load()` and `save(refresh_token)`. Every exchange rotates the Refresh token,
+and presenting a superseded one revokes the Grant, so the provider saves each
+new one before it uses the Access token and never retries an exchange. Create
+one provider per Grant and share it.
+
+```python
+client = TeachMeHipaa(
+    token_provider=PartnerGrantTokenProvider(
+        client_id="app_...", client_secret="tmh_as_...", token_store=store
+    ),
+)
+```
+
+`StaticTokenProvider("eyJ...")` sends an Access token you got yourself.
+
 ## Pagination
 
 A list method returns one page (`.items`, `.next_cursor`). Iterating the page

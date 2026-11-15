@@ -48,6 +48,32 @@ class ClientConfig:
     clock: Callable[[], float]
 
 
+@dataclass(frozen=True)
+class TokenEndpoint:
+    """How to reach the OAuth token endpoint without a client."""
+
+    url: str
+    user_agent: str
+    timeout: httpx.Timeout
+    clock: Callable[[], float]
+
+
+def make_token_endpoint(
+    *,
+    environment: Environment,
+    base_url: str | None,
+    timeout: float | httpx.Timeout,
+    app_info: AppInfo | None,
+    clock: Callable[[], float] | None,
+) -> TokenEndpoint:
+    return TokenEndpoint(
+        url=f"{_base_url(environment, base_url)}/auth/token",
+        user_agent=_user_agent(app_info),
+        timeout=httpx.Timeout(timeout),
+        clock=clock or time.monotonic,
+    )
+
+
 def make_config(
     *,
     environment: Environment,
@@ -59,15 +85,11 @@ def make_config(
     app_info: AppInfo | None,
     clock: Callable[[], float] | None,
 ) -> ClientConfig:
-    if environment not in get_args(Environment):
-        raise ValueError(
-            f"environment must be 'live' or 'sandbox', not {environment!r}"
-        )
     if max_retries < 0:
         raise ValueError("max_retries must be zero or more")
     return ClientConfig(
         environment=environment,
-        base_url=(base_url or ENVIRONMENT_BASE_URLS[environment]).rstrip("/"),
+        base_url=_base_url(environment, base_url),
         organization_id=organization_id,
         scopes=None if scopes is None else tuple(scopes),
         max_retries=max_retries,
@@ -75,6 +97,14 @@ def make_config(
         user_agent=_user_agent(app_info),
         clock=clock or time.monotonic,
     )
+
+
+def _base_url(environment: Environment, base_url: str | None) -> str:
+    if environment not in get_args(Environment):
+        raise ValueError(
+            f"environment must be 'live' or 'sandbox', not {environment!r}"
+        )
+    return (base_url or ENVIRONMENT_BASE_URLS[environment]).rstrip("/")
 
 
 def _user_agent(app_info: AppInfo | None) -> str:

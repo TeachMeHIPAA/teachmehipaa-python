@@ -4,14 +4,16 @@ import asyncio
 import time
 from collections.abc import Awaitable, Callable, Sequence
 from types import TracebackType
-from typing import ClassVar
+from typing import ClassVar, TypeVar
 
 import httpx
 
 from ._core._auth import (
     AsyncClientCredentialsTokenProvider,
+    AsyncTokenProvider,
     ClientCredentials,
     ClientCredentialsTokenProvider,
+    TokenProvider,
 )
 from ._core._config import (
     DEFAULT_MAX_RETRIES,
@@ -25,6 +27,38 @@ from ._core._pipeline import AsyncPipeline, SyncPipeline
 from ._core._retry import AsyncSender, SyncSender
 from ._webhooks import Webhook
 from .resources._root import AsyncResources, SyncResources
+
+ProviderT = TypeVar("ProviderT", TokenProvider, AsyncTokenProvider)
+
+
+def _auth(
+    client_id: str | None,
+    client_secret: str | None,
+    token_provider: ProviderT | None,
+    scopes: Sequence[str] | None,
+) -> ClientCredentials | ProviderT:
+    """The credentials to mint with, or the provider that supplies every
+    Access token instead."""
+    if token_provider is None:
+        if client_id is None or client_secret is None:
+            raise TypeError("pass client_id and client_secret, or token_provider")
+        return ClientCredentials(client_id, client_secret)
+    conflicting = [
+        name
+        for name, value in (
+            ("client_id", client_id),
+            ("client_secret", client_secret),
+            ("scopes", scopes),
+        )
+        if value is not None
+    ]
+    if conflicting:
+        raise TypeError(
+            "give either token_provider or client_id and client_secret, not both "
+            f"(got {', '.join(conflicting)} too; scopes belong to the token "
+            "provider)"
+        )
+    return token_provider
 
 
 class _ConfigView:
@@ -55,7 +89,12 @@ class TeachMeHipaa(_ConfigView, SyncResources):
 
     Pass the API client's id and secret; the client mints, caches and renews
     Access tokens itself and discovers the Organization the credential is
-    bound to unless `organization_id` is given.
+    bound to unless `organization_id` is given. Or pass a `token_provider`,
+    such as a `PartnerGrantTokenProvider` or a `StaticTokenProvider`, to
+    supply every Access token from elsewhere.
+
+    A Partner app's own id and secret mint a Partner-level token for
+    `partners.*`, which needs no Organization.
     """
 
     webhooks: ClassVar[type[Webhook]] = Webhook
@@ -65,8 +104,9 @@ class TeachMeHipaa(_ConfigView, SyncResources):
     def __init__(
         self,
         *,
-        client_id: str,
-        client_secret: str,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        token_provider: TokenProvider | None = None,
         environment: Environment = "live",
         base_url: str | None = None,
         organization_id: str | None = None,
@@ -78,6 +118,7 @@ class TeachMeHipaa(_ConfigView, SyncResources):
         clock: Callable[[], float] | None = None,
         sleep: Callable[[float], None] | None = None,
     ) -> None:
+        auth = _auth(client_id, client_secret, token_provider, scopes)
         self._config = make_config(
             environment=environment,
             base_url=base_url,
@@ -90,8 +131,10 @@ class TeachMeHipaa(_ConfigView, SyncResources):
         )
         self._http_client = http_client or httpx.Client(timeout=self._config.timeout)
         sender = SyncSender(self._http_client, sleep or time.sleep)
-        tokens = ClientCredentialsTokenProvider(
-            ClientCredentials(client_id, client_secret), self._config, sender
+        tokens = (
+            ClientCredentialsTokenProvider(auth, self._config, sender)
+            if isinstance(auth, ClientCredentials)
+            else auth
         )
         super().__init__(SyncPipeline(self._config, sender, tokens))
 
@@ -121,8 +164,9 @@ class AsyncTeachMeHipaa(_ConfigView, AsyncResources):
     def __init__(
         self,
         *,
-        client_id: str,
-        client_secret: str,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        token_provider: AsyncTokenProvider | None = None,
         environment: Environment = "live",
         base_url: str | None = None,
         organization_id: str | None = None,
@@ -134,6 +178,7 @@ class AsyncTeachMeHipaa(_ConfigView, AsyncResources):
         clock: Callable[[], float] | None = None,
         sleep: Callable[[float], Awaitable[None]] | None = None,
     ) -> None:
+        auth = _auth(client_id, client_secret, token_provider, scopes)
         self._config = make_config(
             environment=environment,
             base_url=base_url,
@@ -148,8 +193,10 @@ class AsyncTeachMeHipaa(_ConfigView, AsyncResources):
             timeout=self._config.timeout
         )
         sender = AsyncSender(self._http_client, sleep or asyncio.sleep)
-        tokens = AsyncClientCredentialsTokenProvider(
-            ClientCredentials(client_id, client_secret), self._config, sender
+        tokens = (
+            AsyncClientCredentialsTokenProvider(auth, self._config, sender)
+            if isinstance(auth, ClientCredentials)
+            else auth
         )
         super().__init__(AsyncPipeline(self._config, sender, tokens))
 
