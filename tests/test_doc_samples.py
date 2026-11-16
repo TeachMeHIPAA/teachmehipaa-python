@@ -1,21 +1,26 @@
-"""Keeps the README honest: every Python sample is type-checked with mypy
-against the package, then run against `FakeApi` with what it printed and
-sent checked.
+"""Keeps the README and the guides honest: every Python sample is
+type-checked with mypy against the package, then run against `FakeApi` with
+what it printed and sent checked.
 
-Each ```python block must follow a `<!-- sample: <id> -->` line. A sample
+Each ```python block in `README.md` and `docs/guides/*.md` must follow a
+`<!-- sample: <id> -->` line, with ids unique across all of them. A sample
 that uses `client` without creating one gets the Quickstart's client
 prepended, bound to an Organization so no lookup is scripted. Samples name
-the caller's own storage (`cursors`, `shutdown`);
-`PLACEHOLDERS` types them and `Storage` stands in for them at run time.
+the caller's own storage and secrets (`cursors`, `shutdown`,
+`signing_secrets`, `access_token`); `PLACEHOLDERS` types them and `Storage`
+stands in for them at run time. Relative links in the docs must resolve,
+anchors included.
 """
 
 from __future__ import annotations
 
 import asyncio
+import base64
 import json
 import logging
 import re
 import threading
+import urllib.parse
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -33,6 +38,7 @@ from flask import Flask
 import teachmehipaa
 from teachmehipaa import (
     AsyncTeachMeHipaa,
+    NotFoundError,
     TeachMeHipaa,
     Webhook,
 )
@@ -52,7 +58,7 @@ from tests.fake_api import (
 )
 
 ROOT = Path(__file__).resolve().parents[1]
-README = (ROOT / "README.md").read_text()
+DOCS = [ROOT / "README.md", *sorted((ROOT / "docs" / "guides").glob("*.md"))]
 WEBHOOK_SECRET = "readme-test-signing-secret"
 ORG = f"/organizations/{ORG_ID}"
 LEARNER_ID = "sub_01JD80AB2C3D4E5F6G7H8J9K0M"
@@ -62,16 +68,22 @@ LEARNER = {**LEARNER_JSON, "learnerId": LEARNER_ID}
 class Sample(NamedTuple):
     id: str
     code: str
+    doc: str
 
 
 def _samples() -> list[Sample]:
-    blocks = re.findall(r"^([^\n]*)\n```python\n(.*?)^```$", README, re.M | re.S)
     found = []
-    for tag_line, code in blocks:
-        tag = re.fullmatch(r"<!-- sample: ([\w-]+) -->", tag_line)
-        if tag is None:
-            raise AssertionError(f"README: a python block has no sample tag:\n{code}")
-        found.append(Sample(tag.group(1), code))
+    for path in DOCS:
+        doc = str(path.relative_to(ROOT))
+        text = path.read_text()
+        blocks = re.findall(r"^([^\n]*)\n```python\n(.*?)^```$", text, re.M | re.S)
+        for tag_line, code in blocks:
+            tag = re.fullmatch(r"<!-- sample: ([\w-]+) -->", tag_line)
+            if tag is None:
+                raise AssertionError(
+                    f"{doc}: a python block has no sample tag:\n{code}"
+                )
+            found.append(Sample(tag.group(1), code, doc))
     return found
 
 
@@ -95,15 +107,24 @@ class Cursors:
     def load(self) -> str | None: ...
     def save(self, event_id: str | None) -> None: ...
 
+class SigningSecrets:
+    def save(self, subscription_id: str, secret: str) -> None: ...
+
 cursors: Cursors
 shutdown: threading.Event
+signing_secrets: SigningSecrets
+access_token: str
 """
+PLACEHOLDER_NAMES = "cursors, shutdown, signing_secrets, access_token"
 
 
 def _source(sample: Sample) -> str:
     uses_client = re.search(r"\bclient\.", sample.code) is not None
     creates_client = re.search(r"\bclient = |\bas client\b", sample.code) is not None
     return (PRELUDE if uses_client and not creates_client else "") + sample.code
+
+
+STATIC_ACCESS_TOKEN = "eyJhbGciOiJIUzI1NiJ9.static.sig"
 
 
 @dataclass
@@ -113,6 +134,7 @@ class Storage:
     cursor: str | None = None
     saved_cursors: list[str | None] = field(default_factory=list)
     shutdown: threading.Event = field(default_factory=threading.Event)
+    saved_secrets: list[tuple[str, str]] = field(default_factory=list)
 
     def namespace(self) -> dict[str, object]:
         storage = self
@@ -124,9 +146,15 @@ class Storage:
             def save(self, event_id: str | None) -> None:
                 storage.saved_cursors.append(event_id)
 
+        class SigningSecrets:
+            def save(self, subscription_id: str, secret: str) -> None:
+                storage.saved_secrets.append((subscription_id, secret))
+
         return {
             "cursors": Cursors(),
             "shutdown": self.shutdown,
+            "signing_secrets": SigningSecrets(),
+            "access_token": STATIC_ACCESS_TOKEN,
         }
 
 
@@ -142,8 +170,9 @@ class Harness:
             "__name__": f"readme_{sample_id.replace('-', '_')}",
             **self.storage.namespace(),
         }
-        code = compile(_source(SAMPLES[sample_id]), f"README.md:{sample_id}", "exec")
-        # The README is this repository's own file, not outside input.
+        sample = SAMPLES[sample_id]
+        code = compile(_source(sample), f"{sample.doc}:{sample_id}", "exec")
+        # The docs are this repository's own files, not outside input.
         exec(code, namespace)  # noqa: S102
         return namespace
 
@@ -157,9 +186,10 @@ def harness(
     capsys: pytest.CaptureFixture[str],
     tmp_path: Path,
 ) -> Harness:
-    """Points every client the samples create at the fake and no clock, and
-    runs samples in a temporary directory, since the files sample reads and
-    writes relative paths."""
+    """Points every client the samples create at the fake, unless the sample
+    brings its own `http_client`, with no real waits, and runs samples in a
+    temporary directory, since the file samples read and write relative
+    paths."""
     monkeypatch.chdir(tmp_path)
     api = FakeApi()
     api.on("POST", "/auth/token", Reply(json=token_json()))
@@ -169,13 +199,13 @@ def harness(
     class FakedTeachMeHipaa(TeachMeHipaa):
         def __init__(self, **options: Any) -> None:
             super().__init__(
-                **{**options, "http_client": api.sync_client(), "sleep": sleep}
+                **{"http_client": api.sync_client(), **options, "sleep": sleep}
             )
 
     class FakedAsyncTeachMeHipaa(AsyncTeachMeHipaa):
         def __init__(self, **options: Any) -> None:
             super().__init__(
-                **{**options, "http_client": api.async_client(), "sleep": async_sleep}
+                **{"http_client": api.async_client(), **options, "sleep": async_sleep}
             )
 
     monkeypatch.setattr(teachmehipaa, "TeachMeHipaa", FakedTeachMeHipaa)
@@ -272,6 +302,12 @@ def event(event_id: str) -> dict[str, Any]:
     }
 
 
+def test_every_doc_is_checked() -> None:
+    guides = {path.name for path in DOCS if path.parent.name == "guides"}
+
+    assert {"getting-started.md", "webhooks.md", "testing.md"} <= guides
+
+
 def test_every_python_sample_is_tagged_once_and_run() -> None:
     ids = [sample.id for sample in _samples()]
 
@@ -284,7 +320,7 @@ def test_every_sample_type_checks_against_the_package(tmp_path: Path) -> None:
     files = []
     for sample in SAMPLES.values():
         path = tmp_path / f"readme_{sample.id.replace('-', '_')}.py"
-        imports = "from readme_placeholders import cursors, shutdown\n"
+        imports = f"from readme_placeholders import {PLACEHOLDER_NAMES}\n"
         path.write_text(imports + _source(sample))
         files.append(str(path))
 
@@ -485,12 +521,12 @@ def _operations(h: Harness) -> None:
     assert h.printed() == [f"learners-{ORG_ID}.csv 1 {len(csv)}"]
 
 
-@runs("files")
-def _files(h: Harness) -> None:
-    pdf = b"%PDF-1.7 certificate"
-    csv = b"email,name\r\nana@example.com,Ana Example\r\n"
-    work = Path.cwd()
-    (work / "roster.csv").write_bytes(csv)
+ROSTER_CSV = b"email,name\r\nana@example.com,Ana Example\r\n"
+
+
+@runs("csv-import")
+def _csv_import(h: Harness) -> None:
+    (Path.cwd() / "roster.csv").write_bytes(ROSTER_CSV)
     preview = {
         "totalRows": 1,
         "validRows": 1,
@@ -511,6 +547,18 @@ def _files(h: Harness) -> None:
         f"{ORG}/enrollments:import",
         Reply(status=202, json=operation("enrollments:import")),
     )
+
+    h.run("csv-import")
+
+    assert h.printed() == ["1 of 1 rows are valid"]
+    imports = h.api.requests_to("POST", f"{ORG}/enrollments:import")
+    assert len(imports) == 2
+    assert all(ROSTER_CSV in request.content for request in imports)
+
+
+@runs("pdf-download")
+def _pdf_download(h: Harness) -> None:
+    pdf = b"%PDF-1.7 certificate"
     h.api.on(
         "GET",
         f"{ORG}/certificates/cert_01JD8F/content",
@@ -521,11 +569,9 @@ def _files(h: Harness) -> None:
         ),
     )
 
-    h.run("files")
+    h.run("pdf-download")
 
-    assert h.printed() == ["1 of 1 rows are valid"]
-    imports = h.api.requests_to("POST", f"{ORG}/enrollments:import")
-    assert all(csv in request.content for request in imports)
+    work = Path.cwd()
     assert (work / "ana.pdf").read_bytes() == pdf
     assert (work / "certificate-copy.pdf").read_bytes() == pdf
 
@@ -684,3 +730,235 @@ def _logging(h: Harness) -> None:
         "POST /v1/auth/token 200 in N ms (request id None)",
         f"GET /v1{ORG}/learners 200 in N ms (request id req_l)",
     ]
+
+
+@runs("first-call")
+def _first_call(h: Harness) -> None:
+    h.api.on("GET", "/auth/introspection", Reply(json=introspection_json()))
+    h.api.on("GET", f"{ORG}/compliance", Reply(json=COMPLIANCE))
+    h.api.on("GET", f"{ORG}/learners", page([LEARNER]))
+
+    h.run("first-call")
+
+    assert h.printed() == [
+        "75% of Learners are compliant",
+        "ana@example.com in_progress",
+    ]
+    [listing] = h.api.requests_to("GET", f"{ORG}/learners")
+    assert dict(listing.url.params) == {"limit": "20"}
+
+
+@runs("async-pagination")
+def _async_pagination(h: Harness) -> None:
+    h.api.on("GET", f"{ORG}/learners", page([LEARNER], "cursor-2"))
+    h.api.on("GET", f"{ORG}/learners", page([{**LEARNER, "email": "jo@example.com"}]))
+    print_emails = h.run("async-pagination")["print_emails"]
+
+    async def main() -> None:
+        async with teachmehipaa.AsyncTeachMeHipaa(
+            client_id=CLIENT_ID, client_secret=CLIENT_SECRET, organization_id=ORG_ID
+        ) as client:
+            await print_emails(client)
+
+    asyncio.run(main())
+
+    assert h.printed() == ["ana@example.com", "jo@example.com"]
+
+
+@runs("client-credentials")
+def _client_credentials(h: Harness) -> None:
+    h.api.on("GET", "/auth/introspection", Reply(json=introspection_json()))
+
+    h.run("client-credentials")
+
+    [token_request] = h.api.requests_to("POST", "/auth/token")
+    form = urllib.parse.parse_qs(token_request.content.decode())
+    assert form["scope"] == ["learners:read"]
+    assert h.printed() == ["test org_acme ['learners:read', 'learners:write']"]
+
+
+@runs("static-token")
+def _static_token(h: Harness) -> None:
+    h.api.on("GET", "/auth/introspection", Reply(json=introspection_json()))
+    h.api.on("GET", f"{ORG}/compliance", Reply(json=COMPLIANCE))
+
+    h.run("static-token")
+
+    assert h.printed() == ["0.75"]
+    assert h.api.requests_to("POST", "/auth/token") == []
+    assert {r.headers["authorization"] for r in h.api.requests} == {
+        f"Bearer {STATIC_ACCESS_TOKEN}"
+    }
+
+
+@runs("events-list")
+def _events_list(h: Harness) -> None:
+    h.api.on("GET", f"{ORG}/events", page([event("evt_02"), event("evt_03")]))
+
+    h.run("events-list")
+
+    [listing] = h.api.requests_to("GET", f"{ORG}/events")
+    assert dict(listing.url.params) == {"type": "learner.certified"}
+    assert h.printed() == ["ana@example.com 2026-11-15"] * 2
+
+
+SUBSCRIPTION_ID = "whs_01JD8K2M4N6P8R0T2V4X6Z8B0D"
+
+
+@runs("webhook-subscription-create")
+def _webhook_subscription_create(h: Harness) -> None:
+    created = {
+        "subscriptionId": SUBSCRIPTION_ID,
+        "endpointUrl": "https://hooks.example.com/webhooks/tmh",
+        "eventTypes": ["learner.certified", "learner.expiring"],
+        "enabled": True,
+        "description": "HR sync",
+        "seatsLowThreshold": 5,
+        "secretKeyId": "key_01",
+        "createdAt": "2026-11-15T12:00:00.000Z",
+        "rev": 1,
+        "secret": "whsec_test",
+    }
+    h.api.on("POST", f"{ORG}/webhook-subscriptions", Reply(status=201, json=created))
+
+    h.run("webhook-subscription-create")
+
+    [create] = h.api.requests_to("POST", f"{ORG}/webhook-subscriptions")
+    assert body(create) == {
+        "endpointUrl": "https://hooks.example.com/webhooks/tmh",
+        "eventTypes": ["learner.certified", "learner.expiring"],
+        "description": "HR sync",
+    }
+    assert h.storage.saved_secrets == [(SUBSCRIPTION_ID, "whsec_test")]
+    assert h.printed() == [f"{SUBSCRIPTION_ID} key_01"]
+
+
+@runs("webhook-test-delivery")
+def _webhook_test_delivery(h: Harness) -> None:
+    pending = {"name": OPERATION_NAME, "done": False}
+    sent = {**operation("webhookSubscriptions:test"), "response": None}
+    sent["response"] = {"_tag": "sent", "responseStatus": 204}
+    h.api.on(
+        "POST",
+        f"{ORG}/webhook-subscriptions/{SUBSCRIPTION_ID}:test",
+        Reply(status=202, json=pending),
+    )
+    poll_path = f"{ORG}/operations/{OPERATION_NAME.rsplit('/', 1)[1]}"
+    h.api.on("GET", poll_path, Reply(json=pending))
+    h.api.on("GET", poll_path, Reply(json=sent))
+
+    h.run("webhook-test-delivery")
+
+    assert len(h.api.requests_to("GET", poll_path)) == 2
+    assert h.printed() == ["endpoint answered 204"]
+
+
+CERTIFICATES_CSV = "certificateId,email\r\ncert_01JD8F,ana@example.com\r\n"
+
+
+@runs("certificates-export")
+def _certificates_export(h: Harness) -> None:
+    h.api.on(
+        "POST",
+        f"{ORG}/certificates:export",
+        Reply(
+            status=202,
+            json=operation(
+                "certificates:export",
+                {
+                    "format": "csv",
+                    "contentType": "text/csv; charset=utf-8",
+                    "filename": f"certificates-{ORG_ID}.csv",
+                    "rowCount": 1,
+                    "dataBase64": base64.b64encode(CERTIFICATES_CSV.encode()).decode(),
+                },
+            ),
+        ),
+    )
+
+    h.run("certificates-export")
+
+    [export] = h.api.requests_to("POST", f"{ORG}/certificates:export")
+    assert body(export) == {"format": "csv"}
+    written = (Path.cwd() / f"certificates-{ORG_ID}.csv").read_bytes()
+    assert written == CERTIFICATES_CSV.encode()
+    assert h.printed() == ["1 Certificates exported"]
+
+
+@runs("fake-transport")
+def _fake_transport(h: Harness) -> None:
+    client = h.run("fake-transport")["client"]
+
+    assert h.printed() == ["0.75"]
+    assert h.api.requests == []
+    with pytest.raises(NotFoundError) as raised:
+        client.learners.list()
+    assert raised.value.code == "not_found"
+
+
+@runs("webhook-handler-test")
+def _webhook_handler_test(h: Harness) -> None:
+    namespace = h.run("webhook-handler-test")
+    tests = [value for name, value in namespace.items() if name.startswith("test_")]
+
+    for test in tests:
+        test()
+
+    assert len(tests) == 2
+
+
+@runs("timeouts")
+def _timeouts(h: Harness) -> None:
+    h.api.on("GET", f"{ORG}/learners", page([LEARNER]))
+
+    h.run("timeouts")
+
+    [listing] = h.api.requests_to("GET", f"{ORG}/learners")
+    assert listing.extensions["timeout"] == {
+        "connect": 5.0,
+        "read": 30.0,
+        "write": 30.0,
+        "pool": 30.0,
+    }
+    assert h.printed() == ["1"]
+
+
+# A link target, optionally with an anchor, in a Markdown link or image.
+LINK = re.compile(r"\]\((?!https?:|mailto:)([^)\s]+)\)")
+
+
+def _anchors(markdown: str) -> set[str]:
+    """GitHub's heading anchors: lowercased, punctuation but `-` and `_`
+    dropped, spaces turned into hyphens."""
+    headings = re.findall(r"^#{1,6} (.+)$", markdown, re.M)
+    return {
+        re.sub(r"[^\w\- ]", "", heading.strip().lower()).replace(" ", "-")
+        for heading in headings
+    }
+
+
+LINKED_DOCS = [
+    *DOCS,
+    ROOT / "CONTRIBUTING.md",
+    ROOT / "docs" / "README.md",
+    ROOT / "docs" / "reference" / "resources.md",
+    ROOT / "examples" / "README.md",
+]
+
+
+@pytest.mark.parametrize(
+    "doc", LINKED_DOCS, ids=[str(p.relative_to(ROOT)) for p in LINKED_DOCS]
+)
+def test_relative_links_resolve(doc: Path) -> None:
+    broken = []
+    for target in LINK.findall(doc.read_text()):
+        path_part, _, anchor = target.partition("#")
+        linked = (doc.parent / path_part).resolve() if path_part else doc
+        if not linked.exists() or (
+            anchor
+            and linked.suffix == ".md"
+            and anchor not in _anchors(linked.read_text())
+        ):
+            broken.append(target)
+
+    assert broken == []
