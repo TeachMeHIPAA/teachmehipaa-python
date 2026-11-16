@@ -76,3 +76,22 @@ Generated from the Developer API document release `trimmed-2026-11-15`.
   `httpx` client.
 - Python 3.10 to 3.13, fully typed (`py.typed`, checked with mypy in strict
   mode). No telemetry and no disk writes.
+
+### Documentation
+
+- Guides for partner developers in `docs/guides/`: getting started,
+  authentication, errors and retries, pagination and Events, webhooks,
+  Operations and files, conditional requests, testing, configuration and
+  versioning. Every Python sample in them, as in the README, is
+  type-checked and run against a fake of the API in CI.
+- `docs/reference/resources.md`, generated from the SDK IR by
+  `scripts/generate.py`: every resource and method with its signature, HTTP
+  call, Scopes, retry, idempotency and conditional behavior, and return
+  type, plus the Event types.
+- An API reference built from the docstrings with pdoc, checked for
+  warnings on every pull request and published to GitHub Pages from
+  `main`.
+- Runnable programs in `examples/`: a quickstart, a roster sync by External
+  ID, a Flask webhook endpoint and a Certificate export.
+- A shorter README with CI and license badges, a pre-release status note
+  and links to the guides, and a docs index in `docs/README.md`.

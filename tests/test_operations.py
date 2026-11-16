@@ -34,7 +34,7 @@ from tests.fake_api import (
 
 ORG = f"/organizations/{ORG_ID}"
 OPERATION_ID = "0b7d4a8e-5c1f-4e2a-9d3b-6f8a1c2e4b7d"
-# research `api-sdk-surface.md` §8: `organizations/{orgId}/operations/{id}`.
+# The Developer API names operations `organizations/{orgId}/operations/{id}`.
 OPERATION_NAME = f"organizations/{ORG_ID}/operations/{OPERATION_ID}"
 POLL_PATH = f"{ORG}/operations/{OPERATION_ID}"
 SUBSCRIPTION_ID = "whs_01JD8K2M4N6P8R0T2V4X6Z8B0D"
@@ -67,7 +67,7 @@ EXPORTED_CSV = (
 
 # A Test delivery's 202: pending until the webhook worker settles it.
 PENDING_OPERATION: dict[str, Any] = {"name": OPERATION_NAME, "done": False}
-# The worker's settle on a 2xx from the endpoint (§8: `response._tag`).
+# The worker's settle on a 2xx from the endpoint (`response._tag`).
 SENT_OPERATION: dict[str, Any] = {
     "name": OPERATION_NAME,
     "done": True,

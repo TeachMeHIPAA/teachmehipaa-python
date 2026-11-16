@@ -4,9 +4,10 @@
     uv run python scripts/generate.py --check  # fail if they are stale
 
 Reads only `openapi/sdk-ir.json` (validated against `sdk-ir.schema.json`) and
-writes `src/teachmehipaa/types/` and `src/teachmehipaa/resources/`. The output
-is ruff-formatted and byte-for-byte deterministic. Any IR shape this
-generator has no rule for stops it with an error rather than guessing.
+writes `src/teachmehipaa/types/`, `src/teachmehipaa/resources/` and the
+Markdown reference `docs/reference/resources.md`. The output is
+byte-for-byte deterministic, and the Python is ruff-formatted. Any IR shape
+this generator has no rule for stops it with an error rather than guessing.
 """
 
 from __future__ import annotations
@@ -36,12 +37,23 @@ SCHEMA_PATH = ROOT / "openapi" / "sdk-ir.schema.json"
 PACKAGE = ROOT / "src" / "teachmehipaa"
 GENERATED_DIRS = ("types", "resources")
 EXTENSIONS = PACKAGE / "_extensions"
+REFERENCE = ROOT / "docs" / "reference" / "resources.md"
 
 # Top-level resources with hand-written methods, by IR path. The generator
 # names their classes `<Name>Base` and `Async<Name>Base`;
 # `_extensions/<module>.py` subclasses them under the plain names, and the
 # client exposes those subclasses.
 EXTENDED_RESOURCES = frozenset({"events"})
+# What each extended resource's hand-written methods add, for the Markdown
+# reference; the IR doesn't know them.
+EXTENSION_DOCS = {
+    "events": (
+        "`client.events.tail(...)` is hand-written: it reads the Event log "
+        "from a saved position, once or following new Events. See "
+        "[Pagination and Events](../guides/pagination-and-events.md"
+        "#tailing-the-event-log)."
+    ),
+}
 
 # The type of an Operation's `response`, by operationId, where the spec leaves
 # it untyped but the API documents it. Types come from `_operations.py`.
@@ -1080,6 +1092,8 @@ def check_extensions(roots: Mapping[str, ResourceNode]) -> None:
         ".".join(node.path): node for root in roots.values() for node in root.walk()
     }
     for path in sorted(EXTENDED_RESOURCES):
+        if path not in EXTENSION_DOCS:
+            raise GeneratorError(f"extended resource {path} needs EXTENSION_DOCS")
         node = nodes.get(path)
         if node is None:
             raise GeneratorError(f"extended resource {path} is not in the IR")
@@ -1250,6 +1264,192 @@ def module(header: list[str], body: list[str]) -> str:
     return "\n".join([BANNER, *header, *body]) + "\n"
 
 
+# --- the Markdown reference ----------------------------------------------------
+
+REFERENCE_BANNER = (
+    "<!-- Generated from openapi/sdk-ir.json by scripts/generate.py — do not edit. -->"
+)
+# Every method takes these; the reference says so once instead of per method.
+CALL_OPTIONS = frozenset({"max_retries", "timeout", "request_id"})
+
+
+def reference_argument(argument: Argument) -> str:
+    null = " | None" if argument.nullable else ""
+    if argument.default is not None:
+        return f"{argument.name}: {argument.annotation}{null} = {argument.default}"
+    optional = "" if argument.required else " = ..."
+    return f"{argument.name}: {argument.annotation}{null}{optional}"
+
+
+def reference_signature(path: str, plan: MethodPlan) -> str:
+    """The sync call as a caller writes it, wrapped like `ruff format`
+    would wrap a definition once it passes the line length."""
+    parameters = [reference_argument(a) for a in plan.positional]
+    if plan.positional:
+        parameters.append("/")
+    keywords = [a for a in plan.keywords if a.name not in CALL_OPTIONS]
+    if keywords:
+        parameters.append("*")
+        parameters += [reference_argument(a) for a in keywords]
+    returns = for_client(plan.returns, asynchronous=False)
+    call = f"client.{path}.{plan.name}"
+    one_line = f"{call}({', '.join(parameters)}) -> {returns}"
+    if len(one_line) <= LINE_LENGTH:
+        return one_line
+    return "\n".join(
+        [f"{call}(", *[f"    {p}," for p in parameters], f") -> {returns}"]
+    )
+
+
+def reference_scopes(method: Json) -> str:
+    security = method["security"]
+    if security["kind"] == "none":
+        return "none: a public method, sent without an Access token"
+    alternatives = [
+        " and ".join(f"`{s}`" for s in group) for group in security["anyOf"]
+    ]
+    if alternatives == [""]:
+        return "any Access token"
+    return " or ".join(alternatives)
+
+
+def reference_notes(method: Json, plan: MethodPlan) -> list[str]:
+    notes = []
+    if method["idempotencyKey"] != "none":
+        notes.append(
+            "Sends a generated `Idempotency-Key`, reused by its retries; "
+            "pass `idempotency_key` to set your own."
+        )
+    if method["retrySafe"]:
+        notes.append("Retried on network errors, 409 `conflict`, 429 and 5xx.")
+    else:
+        notes.append("Never retried: it is not safe to replay.")
+    if method["ifMatch"] == "required":
+        notes.append(
+            "Requires `if_match` (an ETag or the object read); a stale one "
+            "raises `PreconditionFailedError`."
+        )
+    elif method["ifMatch"] == "optional":
+        notes.append("Takes `if_match` to refuse the call if the object changed.")
+    if method["ifNoneMatch"] != "none":
+        notes.append(
+            "Takes `if_none_match` and returns `NotModified` when your copy is current."
+        )
+    if plan.call == "request_page":
+        notes.append("Iterate the page for every item across pages.")
+    if plan.call == "request_operation":
+        notes.append("Returns an Operation: call `wait()` for the result.")
+    if plan.call == "request_binary":
+        notes.append("Pass `stream=True` to read the file as it arrives.")
+    if method["requestBody"] is not None and (
+        method["requestBody"]["contentType"] == "application/merge-patch+json"
+    ):
+        notes.append(
+            "A merge patch: omitted arguments stay unchanged; `None` clears a field."
+        )
+    return notes
+
+
+def reference_method(ir: Ir, path: tuple[str, ...], method: Json) -> list[str]:
+    plan = plan_method(ir, method)
+    dotted = ".".join(identifier(part) for part in path)
+    http = f"{method['httpMethod']} {request_path(method)}"
+    lines = [
+        f"### `{dotted}.{plan.name}`",
+        "",
+        "```python",
+        reference_signature(dotted, plan),
+        "```",
+        "",
+        f"`{http}`",
+        "",
+        str(method["summary"]).rstrip(".") + ".",
+    ]
+    if method["description"]:
+        lines += ["", str(method["description"])]
+    lines += [
+        "",
+        f"- **Scopes:** {reference_scopes(method)}",
+        f"- **Returns:** `{for_client(plan.returns, asynchronous=False)}`",
+        *[f"- {note}" for note in reference_notes(method, plan)],
+    ]
+    return lines
+
+
+def reference_events(ir: Ir) -> list[str]:
+    envelope = ir.types[ir.event_envelope]
+    mapping = envelope["discriminator"]["mapping"]
+    catalog = {entry["type"]: entry["data"] for entry in ir.raw["events"]["catalog"]}
+    lines = [
+        "## Event types",
+        "",
+        "Events from `events.list`, `events.tail` and `Webhook.construct_event` "
+        f"are a union of these models; an Event type this version doesn't know "
+        f"arrives as `{ir.unknown_event}`.",
+        "",
+        "| Event type | Model | `data` |",
+        "| --- | --- | --- |",
+    ]
+    for event_type in sorted(mapping):
+        data = model_type(catalog[event_type])
+        lines.append(f"| `{event_type}` | `{mapping[event_type]}` | `{data}` |")
+    return lines
+
+
+def render_reference(ir: Ir) -> str:
+    roots = resource_tree(ir)
+    nodes = [node for _, root in sorted(roots.items()) for node in root.walk()]
+    lines = [
+        REFERENCE_BANNER,
+        "",
+        "# Resource reference",
+        "",
+        f"Every resource and method of the client, generated from the SDK IR "
+        f"of the Developer API document release `{ir.raw['source']['release']}`.",
+        "",
+        "Signatures show the synchronous `TeachMeHipaa` client. `AsyncTeachMeHipaa` "
+        "has the same methods, awaited, returning `AsyncPage`, `AsyncOperation` "
+        "and `AsyncBinaryStream` in place of `SyncPage`, `Operation` and "
+        "`BinaryStream`. Every method also takes `max_retries`, `timeout` and "
+        "`request_id` (see [Errors and retries](../guides/errors-and-retries.md)). "
+        "Arguments shown as `= ...` are optional and not sent when left out. Ids in "
+        "the path are positional; everything else is a keyword. Model and "
+        "parameter types are in `teachmehipaa.types`.",
+        "",
+        "Organization-scoped paths contain `{orgId}`, which the client fills in "
+        "from its Organization binding.",
+        "",
+        "## Resources",
+        "",
+    ]
+    for node in nodes:
+        dotted = ".".join(identifier(part) for part in node.path)
+        # GitHub's heading anchors drop dots and backticks but keep
+        # underscores.
+        anchor = dotted.replace(".", "")
+        names = ", ".join(
+            f"[`{identifier(m['name'])}`](#{anchor}{identifier(m['name'])})"
+            for m in sorted(node.methods, key=lambda m: identifier(m["name"]))
+        )
+        lines.append(f"- [`{dotted}`](#{anchor}): {names}")
+    for node in nodes:
+        dotted = ".".join(identifier(part) for part in node.path)
+        class_name = node.class_name
+        lines += [
+            "",
+            f"## {dotted}",
+            "",
+            f"`client.{dotted}`: `{class_name}`, or `Async{class_name}` on the "
+            "async client.",
+        ]
+        if is_extended(node):
+            lines += ["", EXTENSION_DOCS[".".join(node.path)]]
+        for method in sorted(node.methods, key=lambda m: identifier(m["name"])):
+            lines += ["", *reference_method(ir, node.path, method)]
+    lines += ["", *reference_events(ir)]
+    return "\n".join(lines) + "\n"
+
+
 # --- driver -------------------------------------------------------------------
 
 
@@ -1314,7 +1514,9 @@ def main() -> int:
     )
     arguments = parser.parse_args()
     try:
-        files = generate(load_ir())
+        ir = load_ir()
+        files = generate(ir)
+        reference = render_reference(ir)
     except GeneratorError as error:
         print(f"generate.py: {error}", file=sys.stderr)
         return 1
@@ -1327,22 +1529,30 @@ def main() -> int:
         stale = sorted(set(fresh) ^ set(current)) + sorted(
             name for name in fresh if current.get(name) != fresh[name]
         )
-        for name in stale:
+        committed = REFERENCE.read_text() if REFERENCE.is_file() else ""
+        diffs = [
+            (f"src/teachmehipaa/{name}", current.get(name, ""), fresh.get(name, ""))
+            for name in stale
+        ]
+        diffs.append((str(REFERENCE.relative_to(ROOT)), committed, reference))
+        for path, old, new in diffs:
             sys.stdout.writelines(
                 difflib.unified_diff(
-                    current.get(name, "").splitlines(keepends=True),
-                    fresh.get(name, "").splitlines(keepends=True),
-                    f"a/{name}",
-                    f"b/{name}",
+                    old.splitlines(keepends=True),
+                    new.splitlines(keepends=True),
+                    f"a/{path}",
+                    f"b/{path}",
                 )
             )
-        return 1 if stale else 0
+        return 1 if stale or committed != reference else 0
     for name in GENERATED_DIRS:
         shutil.rmtree(PACKAGE / name)
     for name, contents in fresh.items():
         target = PACKAGE / name
         target.parent.mkdir(parents=True, exist_ok=True)
         target.write_text(contents)
+    REFERENCE.parent.mkdir(parents=True, exist_ok=True)
+    REFERENCE.write_text(reference)
     return 0
 
 

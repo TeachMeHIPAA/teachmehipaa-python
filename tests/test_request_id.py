@@ -1,7 +1,7 @@
 """A custom request id per call (story 50), through the public clients.
 
-The API echoes an `x-request-id` it accepts (research `api-sdk-surface.md`
-§7), so the id a caller sends comes back on `last_response` and on errors.
+The API echoes an `x-request-id` it accepts, so the id a caller sends comes
+back on `last_response` and on errors.
 """
 
 from typing import Any

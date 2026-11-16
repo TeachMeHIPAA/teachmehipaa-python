@@ -16,8 +16,9 @@ from tests.fake_api import CLIENT_ID, CLIENT_SECRET
 
 OPENAPI = Path(__file__).parent.parent / "openapi"
 
-# From api-sdk-surface.md §11, with the grilling's renames applied (Q12: the
-# glossary bans "credential", so `retrieveLinks`; IR: `delete`, not `del`, and
+# From the developer API reference, written down independently of the
+# generator, with the grilling's renames applied (Q12: the glossary bans
+# "credential", so `retrieveLinks`; IR: `delete`, not `del`, and
 # `auth.introspect`) and Q25's splits. `import` is a Python keyword, so the
 # method carries PEP 8's trailing underscore.
 EXPECTED_METHODS: dict[str, list[str]] = {
