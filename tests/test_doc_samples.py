@@ -359,7 +359,7 @@ def _quickstart(h: Harness) -> None:
     h.run("quickstart")
 
     assert h.printed() == ["Ana Lima in_progress", "ana@example.com"]
-    assert h.api.requests[0].url == "https://api-teachmehipaa-dev.web.app/v1/auth/token"
+    assert h.api.requests[0].url == "https://sandbox.api.tme.so/v1/auth/token"
     [listing] = h.api.requests_to("GET", f"{ORG}/learners")
     assert dict(listing.url.params) == {"status": "in_progress", "limit": "20"}
 
@@ -768,7 +768,7 @@ def _async_fastapi(h: Harness) -> None:
 def _configuration(h: Harness) -> None:
     h.run("configuration")
 
-    assert h.printed() == ["sandbox https://api-teachmehipaa-dev.web.app/v1 3"]
+    assert h.printed() == ["sandbox https://sandbox.api.tme.so/v1 3"]
 
 
 class Recorder(logging.Handler):

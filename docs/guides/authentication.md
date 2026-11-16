@@ -73,7 +73,7 @@ Credentials work in their own Environment only.
 | `environment`      | Base URL                                  | Use it for                                     |
 | ------------------ | ----------------------------------------- | ---------------------------------------------- |
 | `"live"` (default) | `https://api.tme.so/v1`                   | Your real Organization and Learners            |
-| `"sandbox"`        | `https://api-teachmehipaa-dev.web.app/v1` | Building and testing; no real Learners emailed |
+| `"sandbox"`        | `https://sandbox.api.tme.so/v1` | Building and testing; no real Learners emailed |
 
 The default is `"live"`, so pass `environment="sandbox"` whenever you use
 Sandbox credentials. Send Sandbox credentials to Live, or Live ones to the
