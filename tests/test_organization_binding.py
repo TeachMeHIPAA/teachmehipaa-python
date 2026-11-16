@@ -73,5 +73,9 @@ def test_a_token_bound_to_no_organization_raises() -> None:
         client_id=CLIENT_ID, client_secret=CLIENT_SECRET, http_client=api.sync_client()
     )
 
-    with pytest.raises(TeachMeHipaaError, match="not bound to an Organization"):
+    with pytest.raises(
+        TeachMeHipaaError,
+        match=r"^The Access token is not bound to an Organization\. "
+        r"Pass organization_id when you create the client\.$",
+    ):
         client.learners.retrieve(LEARNER_ID)

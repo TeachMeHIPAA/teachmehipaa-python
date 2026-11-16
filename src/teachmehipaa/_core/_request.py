@@ -346,7 +346,8 @@ def read_organization_id(response: httpx.Response) -> str:
     organization_id = _checked(response).json().get("orgId")
     if not isinstance(organization_id, str):
         raise TeachMeHipaaError(
-            "The access token is not bound to an Organization.",
+            "The Access token is not bound to an Organization. "
+            "Pass organization_id when you create the client.",
             status=response.status_code,
             request_id=request_id_of(response.headers),
             headers=response.headers,
