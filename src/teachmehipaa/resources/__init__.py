@@ -15,9 +15,6 @@ from .enrollments import AsyncEnrollments, Enrollments
 from .learners import AsyncLearners, Learners
 from .members import AsyncMembers, Members
 from .operations import AsyncOperations, Operations
-from .partners import AsyncPartners, Partners
-from .payment_method import AsyncPaymentMethod, PaymentMethod
-from .seat_orders import AsyncSeatOrders, SeatOrders
 from .seats import AsyncSeats, Seats
 from .webhook_subscriptions import AsyncWebhookSubscriptions, WebhookSubscriptions
 
@@ -33,9 +30,6 @@ __all__ = [
     "AsyncLearners",
     "AsyncMembers",
     "AsyncOperations",
-    "AsyncPartners",
-    "AsyncPaymentMethod",
-    "AsyncSeatOrders",
     "AsyncSeats",
     "AsyncWebhookSubscriptions",
     "AuditEvents",
@@ -49,9 +43,6 @@ __all__ = [
     "Learners",
     "Members",
     "Operations",
-    "Partners",
-    "PaymentMethod",
-    "SeatOrders",
     "Seats",
     "WebhookSubscriptions",
 ]

@@ -27,10 +27,7 @@ AccessTokenResponseScopesItem: TypeAlias = (
         "learners:read",
         "learners:write",
         "compliance:read",
-        "seats:purchase",
         "webhooks:manage",
-        "partner:orgs:read",
-        "partner:orgs:write",
     ]
     | str
 )
@@ -113,9 +110,7 @@ class AuditEventApiClientSecretRotated(BaseModel):
     client_id: str
 
 
-AuditEventApiClientUpdatedFieldsItem: TypeAlias = (
-    Literal["name", "maxSeatsPerOrder", "maxSpendPer30Days", "returnUrlAllowlist"] | str
-)
+AuditEventApiClientUpdatedFieldsItem: TypeAlias = Literal["name"] | str
 
 
 class AuditEventApiClientUpdated(BaseModel):
@@ -267,83 +262,12 @@ class AuditEventMemberTransferred(BaseModel):
     target_org_id: str
 
 
-AuditEventOauthGrantCreatedScopesItem: TypeAlias = (
-    Literal[
-        "enrollments:read",
-        "enrollments:write",
-        "certificates:read",
-        "members:read",
-        "audit:read",
-        "learners:read",
-        "learners:write",
-        "compliance:read",
-        "seats:purchase",
-        "webhooks:manage",
-    ]
-    | str
-)
-
-
-class AuditEventOauthGrantCreated(BaseModel):
-    event_id: str
-    at: str
-    type: Literal["oauth_grant.created"]
-    actor_subject_id: str
-    actor: AuditEventActor
-    app_id: str
-    grant_id: str
-    scopes: list[AuditEventOauthGrantCreatedScopesItem]
-
-
-AuditEventOauthGrantRevokedReason: TypeAlias = (
-    Literal["admin", "code_reuse", "refresh_token_reuse"] | str
-)
-
-
-class AuditEventOauthGrantRevoked(BaseModel):
-    event_id: str
-    at: str
-    type: Literal["oauth_grant.revoked"]
-    actor_subject_id: str
-    actor: AuditEventActor
-    app_id: str
-    grant_id: str
-    reason: AuditEventOauthGrantRevokedReason
-
-
-AuditEventOauthGrantUpdatedFieldsItem: TypeAlias = (
-    Literal["maxSeatsPerOrder", "maxSpendPer30Days"] | str
-)
-
-
-class AuditEventOauthGrantUpdated(BaseModel):
-    event_id: str
-    at: str
-    type: Literal["oauth_grant.updated"]
-    actor_subject_id: str
-    actor: AuditEventActor
-    app_id: str
-    grant_id: str
-    fields: list[AuditEventOauthGrantUpdatedFieldsItem]
-
-
 class AuditEventOrganizationClosed(BaseModel):
     event_id: str
     at: str
     type: Literal["organization.closed"]
     actor_subject_id: str
     actor: AuditEventActor
-
-
-class AuditEventOrganizationCreatedByPartner(BaseModel):
-    event_id: str
-    at: str
-    type: Literal["organization.created_by_partner"]
-    actor_subject_id: str
-    actor: AuditEventActor
-    partner_id: str
-    app_id: str
-    grant_id: str
 
 
 class AuditEventOrganizationReopened(BaseModel):
@@ -377,46 +301,6 @@ class AuditEventSeatGranted(BaseModel):
     quantity: int
 
 
-AuditEventPaymentMethod: TypeAlias = (
-    Literal["hosted_checkout", "saved_payment_method", "invoice"] | str
-)
-
-
-class AuditEventSeatOrderCreated(BaseModel):
-    event_id: str
-    at: str
-    actor_subject_id: str
-    actor: AuditEventActor
-    seat_order_id: str
-    quantity: int
-    payment_method: AuditEventPaymentMethod
-    type: Literal["seat_order.created"]
-    grant_id: str | None = None
-
-
-class AuditEventSeatOrderFailed(BaseModel):
-    event_id: str
-    at: str
-    actor_subject_id: str
-    actor: AuditEventActor
-    seat_order_id: str
-    quantity: int
-    payment_method: AuditEventPaymentMethod
-    type: Literal["seat_order.failed"]
-    failure_code: str | None
-
-
-class AuditEventSeatOrderPaid(BaseModel):
-    event_id: str
-    at: str
-    actor_subject_id: str
-    actor: AuditEventActor
-    seat_order_id: str
-    quantity: int
-    payment_method: AuditEventPaymentMethod
-    type: Literal["seat_order.paid"]
-
-
 class UnknownAuditEvent(BaseModel):
     """A `AuditEvent` of a kind this version of the library doesn't know. Its other
     fields are kept in `model_extra`.
@@ -438,19 +322,10 @@ AuditEvent: TypeAlias = Annotated[
     | Annotated[AuditEventMemberRemoved, Tag("member.removed")]
     | Annotated[AuditEventMemberRoleChanged, Tag("member.role_changed")]
     | Annotated[AuditEventMemberTransferred, Tag("member.transferred")]
-    | Annotated[AuditEventOauthGrantCreated, Tag("oauth_grant.created")]
-    | Annotated[AuditEventOauthGrantRevoked, Tag("oauth_grant.revoked")]
-    | Annotated[AuditEventOauthGrantUpdated, Tag("oauth_grant.updated")]
     | Annotated[AuditEventOrganizationClosed, Tag("organization.closed")]
-    | Annotated[
-        AuditEventOrganizationCreatedByPartner, Tag("organization.created_by_partner")
-    ]
     | Annotated[AuditEventOrganizationReopened, Tag("organization.reopened")]
     | Annotated[AuditEventOrganizationUpdated, Tag("organization.updated")]
     | Annotated[AuditEventSeatGranted, Tag("seat.granted")]
-    | Annotated[AuditEventSeatOrderCreated, Tag("seat_order.created")]
-    | Annotated[AuditEventSeatOrderFailed, Tag("seat_order.failed")]
-    | Annotated[AuditEventSeatOrderPaid, Tag("seat_order.paid")]
     | Annotated[UnknownAuditEvent, Tag(UNKNOWN_VARIANT)],
     Discriminator(
         by_property(
@@ -470,17 +345,10 @@ AuditEvent: TypeAlias = Annotated[
                     "member.removed",
                     "member.role_changed",
                     "member.transferred",
-                    "oauth_grant.created",
-                    "oauth_grant.revoked",
-                    "oauth_grant.updated",
                     "organization.closed",
-                    "organization.created_by_partner",
                     "organization.reopened",
                     "organization.updated",
                     "seat.granted",
-                    "seat_order.created",
-                    "seat_order.failed",
-                    "seat_order.paid",
                 }
             ),
         )
@@ -490,63 +358,6 @@ AuditEvent: TypeAlias = Annotated[
 
 class AuditEventsPage(PageBody[AuditEvent]):
     pass
-
-
-AuthorizationCodeTokenResponseTokenType: TypeAlias = Literal["Bearer"] | str
-
-
-class AuthorizationCodeTokenResponse(BaseModel):
-    access_token: str = Field(alias="access_token")
-    token_type: AuthorizationCodeTokenResponseTokenType = Field(alias="token_type")
-    expires_in: int = Field(alias="expires_in")
-    refresh_token: str = Field(alias="refresh_token")
-    scope: str
-
-
-class PaymentMethodSavedByApiClient(BaseModel):
-    type: Literal["api_client"]
-    name: str
-
-
-class PaymentMethodSavedByUser(BaseModel):
-    type: Literal["user"]
-    name: str
-
-
-class UnknownPaymentMethodSavedBy(BaseModel):
-    """A `PaymentMethodSavedBy` of a kind this version of the library doesn't know. Its
-    other fields are kept in `model_extra`.
-    """
-
-    type: str
-
-
-PaymentMethodSavedBy: TypeAlias = Annotated[
-    Annotated[PaymentMethodSavedByApiClient, Tag("api_client")]
-    | Annotated[PaymentMethodSavedByUser, Tag("user")]
-    | Annotated[UnknownPaymentMethodSavedBy, Tag(UNKNOWN_VARIANT)],
-    Discriminator(by_property("type", "type", frozenset({"api_client", "user"}))),
-]
-
-
-class BillingPaymentMethodDefaultPaymentMethod(BaseModel):
-    brand: str
-    last4: str
-    exp_month: int
-    exp_year: int
-    payment_method_id: str | None
-    saved_by: PaymentMethodSavedBy | None
-    saved_at: datetime | None
-    expired: bool
-
-
-class BillingPaymentMethod(BaseModel):
-    default_payment_method: BillingPaymentMethodDefaultPaymentMethod | None
-    """The saved card's brand, last four digits, expiry and id, or `null` when none is
-    saved.
-    """
-    chargeable: bool
-    """Whether a `saved_payment_method` order would charge it now."""
 
 
 EnrollmentEffectiveStatus: TypeAlias = (
@@ -972,21 +783,9 @@ ProblemCode: TypeAlias = (
         "api_client_limit_reached",
         "external_id_conflict",
         "cannot_offboard_admin",
-        "spend_limit_exceeded",
-        "payment_method_not_available",
-        "return_url_not_allowed",
-        "currency_not_available",
-        "payment_method_required",
-        "payment_method_changed",
-        "price_changed",
-        "superseded",
-        "setup_not_succeeded",
-        "invoice_billing_not_enabled",
         "cannot_launch_admin",
         "learner_removed",
         "learner_not_accepted",
-        "partner_org_limit_reached",
-        "billing_contact_required",
         "cannot_rename_admin",
         "learner_in_multiple_orgs",
         "account_exists_use_sign_in",
@@ -1217,39 +1016,6 @@ class EventSeatFreed(BaseModel):
     data: dict[str, Any]
 
 
-SeatOrderEventDataStatus: TypeAlias = Literal["paid", "failed", "expired"] | str
-
-
-class SeatOrderEventData(BaseModel):
-    seat_order_id: str
-    quantity: int
-    status: SeatOrderEventDataStatus
-
-
-class EventSeatOrderExpired(BaseModel):
-    event_id: str
-    event_type: Literal["seat_order.expired"]
-    org_id: str
-    occurred_at: datetime
-    data: SeatOrderEventData
-
-
-class EventSeatOrderFailed(BaseModel):
-    event_id: str
-    event_type: Literal["seat_order.failed"]
-    org_id: str
-    occurred_at: datetime
-    data: SeatOrderEventData
-
-
-class EventSeatOrderPaid(BaseModel):
-    event_id: str
-    event_type: Literal["seat_order.paid"]
-    org_id: str
-    occurred_at: datetime
-    data: SeatOrderEventData
-
-
 class SeatsLowEventData(BaseModel):
     available: int
     threshold: int
@@ -1287,9 +1053,6 @@ Event: TypeAlias = Annotated[
     | Annotated[EventLearnerStarted, Tag("learner.started")]
     | Annotated[EventSeatConsumed, Tag("seat.consumed")]
     | Annotated[EventSeatFreed, Tag("seat.freed")]
-    | Annotated[EventSeatOrderExpired, Tag("seat_order.expired")]
-    | Annotated[EventSeatOrderFailed, Tag("seat_order.failed")]
-    | Annotated[EventSeatOrderPaid, Tag("seat_order.paid")]
     | Annotated[EventSeatsLow, Tag("seats.low")]
     | Annotated[UnknownEvent, Tag(UNKNOWN_VARIANT)],
     Discriminator(
@@ -1309,9 +1072,6 @@ Event: TypeAlias = Annotated[
                     "learner.started",
                     "seat.consumed",
                     "seat.freed",
-                    "seat_order.expired",
-                    "seat_order.failed",
-                    "seat_order.paid",
                     "seats.low",
                 }
             ),
@@ -1334,9 +1094,6 @@ EventType: TypeAlias = (
         "invite.bounced",
         "certificate.revoked",
         "seats.low",
-        "seat_order.paid",
-        "seat_order.failed",
-        "seat_order.expired",
     ]
     | str
 )
@@ -1679,15 +1436,8 @@ ListAuditEventsType: TypeAlias = (
         "api_client.secret_rotated",
         "api_client.revoked",
         "learner.updated",
-        "oauth_grant.created",
-        "oauth_grant.revoked",
-        "seat_order.created",
-        "seat_order.paid",
-        "seat_order.failed",
         "learner.launch_link_created",
         "api_client.updated",
-        "oauth_grant.updated",
-        "organization.created_by_partner",
     ]
     | str
 )
@@ -1790,347 +1540,6 @@ class OrgEventsPage(PageBody[Event]):
     pass
 
 
-PartnerStatus: TypeAlias = Literal["active", "suspended"] | str
-"""`active` or `suspended`."""
-
-
-class Partner(BaseModel):
-    partner_id: str
-    """Unique identifier for the partner account."""
-    name: str
-    """The partner's name."""
-    app_id: str
-    """The partner app."""
-    status: PartnerStatus
-    """`active` or `suspended`."""
-    max_child_orgs: int
-    """How many organizations the partner can create."""
-    child_org_count: int
-    """How many it has created."""
-    created_at: datetime
-    """When it was created (ISO 8601)."""
-
-
-class PartnerOrganization(BaseModel):
-    org_id: str
-    name: str
-    created_at: datetime
-    grant_active: bool
-
-
-PartnerOrganizationCreateScopesItem: TypeAlias = (
-    Literal[
-        "enrollments:read",
-        "enrollments:write",
-        "certificates:read",
-        "members:read",
-        "audit:read",
-        "learners:read",
-        "learners:write",
-        "compliance:read",
-        "seats:purchase",
-        "webhooks:manage",
-    ]
-    | str
-)
-
-
-class PartnerOrganizationCreate(BaseModel):
-    name: str
-    """The organization's name."""
-    admin_email: str
-    """The email address of the organization's administrator."""
-    admin_name: str | None = None
-    """The administrator's full name."""
-    scopes: list[PartnerOrganizationCreateScopesItem]
-    """The scopes your app gets on the new organization. A subset of your app's scopes.
-    """
-
-
-PartnerOrganizationCreatedGrantScopesItem: TypeAlias = (
-    Literal[
-        "enrollments:read",
-        "enrollments:write",
-        "certificates:read",
-        "members:read",
-        "audit:read",
-        "learners:read",
-        "learners:write",
-        "compliance:read",
-        "seats:purchase",
-        "webhooks:manage",
-    ]
-    | str
-)
-
-
-class PartnerOrganizationCreatedGrant(BaseModel):
-    """Your app's connection to the organization."""
-
-    grant_id: str
-    scopes: list[PartnerOrganizationCreatedGrantScopesItem]
-
-
-class PartnerOrganizationCreated(BaseModel):
-    org_id: str
-    """The new organization's id."""
-    name: str
-    """The organization's name."""
-    created_at: datetime
-    """When it was created (ISO 8601)."""
-    grant: PartnerOrganizationCreatedGrant
-    """Your app's connection to the organization."""
-    refresh_token: str = Field(alias="refresh_token")
-    """Returned only once. Exchange it at `POST /v1/auth/token` for the organization's
-    tokens.
-    """
-
-
-class PartnerOrganizationsPage(PageBody[PartnerOrganization]):
-    pass
-
-
-class PaymentMethodConfirmRequest(BaseModel):
-    setup_intent_id: str
-    """The SetupIntent you confirmed with Stripe.js."""
-
-
-class PaymentMethodPrepare(BaseModel):
-    setup_intent_id: str
-    """The Stripe SetupIntent."""
-    client_secret: str
-    """Confirm the SetupIntent with Stripe.js using this secret."""
-    publishable_key: str
-    """The Stripe publishable key to load Stripe.js with."""
-
-
-class PaymentMethodSetup(BaseModel):
-    url: str
-    """The Stripe-hosted page to send the buyer to."""
-
-
-class PaymentMethodSetupRequest(BaseModel):
-    return_url: str
-    """Where Stripe sends the buyer afterwards. Must be https and on your client's
-    allowlist.
-    """
-
-
-class SeatOrderFailure(BaseModel):
-    code: str
-    message: str
-
-
-SeatOrderPaymentMethod: TypeAlias = (
-    Literal["hosted_checkout", "saved_payment_method", "invoice"] | str
-)
-"""`hosted_checkout`, `saved_payment_method` or `invoice`."""
-
-
-SeatOrderStatus: TypeAlias = (
-    Literal[
-        "requires_action",
-        "processing",
-        "invoiced",
-        "paid",
-        "failed",
-        "expired",
-        "refunded",
-    ]
-    | str
-)
-"""`requires_action`, `processing`, `invoiced`, `paid`, `failed`, `expired` or
-`refunded`.
-"""
-
-
-class SeatOrder(BaseModel):
-    seat_order_id: str
-    """Unique identifier for the seat order."""
-    org_id: str
-    """The organization's id."""
-    quantity: int
-    """Seats ordered."""
-    unit_amount: int
-    """Price per seat, in the currency's smallest unit."""
-    currency: str
-    """Three-letter ISO currency code, lowercase."""
-    total: int
-    """The order total, in the currency's smallest unit."""
-    payment_method: SeatOrderPaymentMethod
-    """`hosted_checkout`, `saved_payment_method` or `invoice`."""
-    status: SeatOrderStatus
-    """`requires_action`, `processing`, `invoiced`, `paid`, `failed`, `expired` or
-    `refunded`.
-    """
-    seats_granted: int
-    """Seats granted so far."""
-    seats_refunded: int
-    """Seats refunded through support."""
-    failure: SeatOrderFailure | None
-    """Why the order failed, with Stripe's decline code when there is one."""
-    client_id: str | None
-    """The API client that placed the order, if one did."""
-    client_reference: str | None
-    """Your own reference for the order."""
-    checkout_id: str | None
-    """The Stripe checkout session, for a hosted checkout."""
-    created_at: datetime
-    """When it was created (ISO 8601)."""
-    updated_at: datetime
-    """When it last changed."""
-    rev: int
-    """The resource's revision. Its strong `ETag` is derived from it."""
-
-
-class SeatOrderCreateRequestPaymentHostedCheckout(BaseModel):
-    method: Literal["hosted_checkout"]
-    return_url: str
-
-
-class SeatOrderCreateRequestPaymentInvoice(BaseModel):
-    method: Literal["invoice"]
-    days_until_due: int | None = None
-
-
-class SeatOrderCreateRequestPaymentSavedPaymentMethod(BaseModel):
-    method: Literal["saved_payment_method"]
-    return_url: str | None = None
-    payment_method_id: str | None = None
-    expected_total: int | None = None
-    currency: str | None = None
-
-
-class UnknownSeatOrderCreateRequestPayment(BaseModel):
-    """A `SeatOrderCreateRequestPayment` of a kind this version of the library doesn't
-    know. Its other fields are kept in `model_extra`.
-    """
-
-    method: str
-
-
-SeatOrderCreateRequestPayment: TypeAlias = Annotated[
-    Annotated[SeatOrderCreateRequestPaymentHostedCheckout, Tag("hosted_checkout")]
-    | Annotated[SeatOrderCreateRequestPaymentInvoice, Tag("invoice")]
-    | Annotated[
-        SeatOrderCreateRequestPaymentSavedPaymentMethod, Tag("saved_payment_method")
-    ]
-    | Annotated[UnknownSeatOrderCreateRequestPayment, Tag(UNKNOWN_VARIANT)],
-    Discriminator(
-        by_property(
-            "method",
-            "method",
-            frozenset({"hosted_checkout", "invoice", "saved_payment_method"}),
-        )
-    ),
-]
-"""How to pay: `hosted_checkout` with a `returnUrl`, `saved_payment_method` with the
-card's `paymentMethodId`, or `invoice`. A `returnUrl` must be https and on your API
-client's allowlist.
-"""
-
-
-class SeatOrderCreateRequest(BaseModel):
-    quantity: int
-    """Seats to buy."""
-    payment: SeatOrderCreateRequestPayment
-    """How to pay: `hosted_checkout` with a `returnUrl`, `saved_payment_method` with the
-    card's `paymentMethodId`, or `invoice`. A `returnUrl` must be https and on your API
-    client's allowlist.
-    """
-    client_reference: str | None = None
-    """Your own reference for the order."""
-
-
-class SeatOrderCreatedFailure(BaseModel):
-    code: str
-    message: str
-
-
-class SeatOrderCreatedNextActionInvoice(BaseModel):
-    type: Literal["invoice"]
-    hosted_invoice_url: str
-
-
-class SeatOrderCreatedNextActionRedirect(BaseModel):
-    type: Literal["redirect"]
-    url: str
-
-
-class UnknownSeatOrderCreatedNextAction(BaseModel):
-    """A `SeatOrderCreatedNextAction` of a kind this version of the library doesn't
-    know. Its other fields are kept in `model_extra`.
-    """
-
-    type: str
-
-
-SeatOrderCreatedNextAction: TypeAlias = Annotated[
-    Annotated[SeatOrderCreatedNextActionInvoice, Tag("invoice")]
-    | Annotated[SeatOrderCreatedNextActionRedirect, Tag("redirect")]
-    | Annotated[UnknownSeatOrderCreatedNextAction, Tag(UNKNOWN_VARIANT)],
-    Discriminator(by_property("type", "type", frozenset({"invoice", "redirect"}))),
-]
-"""Where to send the buyer next: a checkout `url` to redirect to, or a hosted invoice.
-"""
-
-
-SeatOrderCreatedStatus: TypeAlias = (
-    Literal[
-        "requires_action",
-        "processing",
-        "invoiced",
-        "paid",
-        "failed",
-        "expired",
-        "refunded",
-    ]
-    | str
-)
-"""The order's status."""
-
-
-class SeatOrderCreated(BaseModel):
-    seat_order_id: str
-    """Unique identifier for the seat order."""
-    status: SeatOrderCreatedStatus
-    """The order's status."""
-    next_action: SeatOrderCreatedNextAction | None
-    """Where to send the buyer next: a checkout `url` to redirect to, or a hosted
-    invoice.
-    """
-    failure: SeatOrderCreatedFailure | None
-    """Why the payment failed, if it did."""
-
-
-class SeatOrderQuote(BaseModel):
-    quantity: int
-    """Seats quoted."""
-    unit_amount: int
-    """Price per seat, in the currency's smallest unit."""
-    currency: str
-    """Three-letter ISO currency code, lowercase."""
-    subtotal: int
-    """Price before tax."""
-    tax: Any
-    """Always `null`: tax is calculated at payment."""
-    total: int
-    """The quoted total."""
-    quote_expires_at: datetime
-    """When the quote expires, 15 minutes after it was made."""
-
-
-class SeatOrderQuoteRequest(BaseModel):
-    quantity: int
-    """Seats to quote."""
-    currency: str | None = None
-    """The currency you expect to be charged in. It must match the organization's."""
-
-
-class SeatOrdersPage(PageBody[SeatOrder]):
-    pass
-
-
 class SeatsInventoryByState(BaseModel):
     """Seats by internal state. Prefer `purchased`, `assigned` and `available`."""
 
@@ -2171,7 +1580,7 @@ class TestDelivery(BaseModel):
 
 
 TokenIntrospectionActorType: TypeAlias = Literal["user", "client"] | str
-"""`client` for an API client or partner app, `user` for a person."""
+"""`client` for an API client, `user` for a person."""
 
 
 TokenIntrospectionMode: TypeAlias = Literal["test", "live"] | str
@@ -2194,10 +1603,7 @@ TokenIntrospectionScopesItem: TypeAlias = (
         "learners:read",
         "learners:write",
         "compliance:read",
-        "seats:purchase",
         "webhooks:manage",
-        "partner:orgs:read",
-        "partner:orgs:write",
     ]
     | str
 )
@@ -2205,9 +1611,9 @@ TokenIntrospectionScopesItem: TypeAlias = (
 
 class TokenIntrospection(BaseModel):
     actor_type: TokenIntrospectionActorType
-    """`client` for an API client or partner app, `user` for a person."""
+    """`client` for an API client, `user` for a person."""
     client_id: str | None
-    """The API client or partner app the token belongs to."""
+    """The API client the token belongs to."""
     subject_id: str | None
     """The person the token belongs to, for a user token."""
     org_id: str | None

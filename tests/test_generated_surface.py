@@ -56,18 +56,6 @@ EXPECTED_METHODS: dict[str, list[str]] = {
     "listMembers": ["members.list"],
     "getMember": ["members.retrieve"],
     "getOperation": ["operations.retrieve"],
-    "getPartner": ["partners.retrieve"],
-    "createPartnerOrganization": ["partners.organizations.create"],
-    "listPartnerOrganizations": ["partners.organizations.list"],
-    "confirmPaymentMethod": ["payment_method.confirm"],
-    "removePaymentMethod": ["payment_method.delete"],
-    "preparePaymentMethod": ["payment_method.prepare"],
-    "getPaymentMethod": ["payment_method.retrieve"],
-    "setupPaymentMethod": ["payment_method.setup"],
-    "createSeatOrder": ["seat_orders.create"],
-    "listSeatOrders": ["seat_orders.list"],
-    "quoteSeatOrder": ["seat_orders.quote"],
-    "getSeatOrder": ["seat_orders.retrieve"],
     "getSeatInventory": ["seats.retrieve"],
     "createWebhookSubscription": ["webhook_subscriptions.create"],
     "deleteWebhookSubscription": ["webhook_subscriptions.delete"],
@@ -165,7 +153,7 @@ def test_every_spec_operation_except_the_token_endpoint_is_expected() -> None:
         if isinstance(operation, dict) and "operationId" in operation
     }
 
-    assert len(operation_ids) == 56
+    assert len(operation_ids) == 44
     assert operation_ids - HAND_WRITTEN == set(EXPECTED_METHODS)
 
 
@@ -208,19 +196,13 @@ def test_sync_and_async_methods_take_the_same_parameters() -> None:
         assert list(sync_signature.parameters) == list(async_signature.parameters)
 
 
-def test_org_scoped_methods_take_no_org_id_and_partner_methods_take_partner_id() -> (
-    None
-):
+def test_org_scoped_methods_take_no_org_id() -> None:
     sync, _ = make_clients()
 
     for name in EXPECTED_NAMES:
         parameters = inspect.signature(resolve(sync, name)).parameters
         assert "org_id" not in parameters, name
         assert "organization_id" not in parameters, name
-        if name.startswith("partners."):
-            first = next(iter(parameters.values()))
-            assert first.name == "partner_id", name
-            assert first.kind is inspect.Parameter.POSITIONAL_ONLY, name
 
 
 def test_path_params_are_positional_only_and_the_rest_keyword_only() -> None:

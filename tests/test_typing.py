@@ -8,26 +8,24 @@ from pydantic import TypeAdapter
 from typing_extensions import assert_type
 
 from teachmehipaa.types import (
+    AuditEvent,
     AuditEventActor,
+    AuditEventActorClient,
     AuditEventActorUser,
+    AuditEventMemberRemoved,
+    EnrollmentsBatchRequestSelectFilterFilterParam,
+    EnrollmentsBatchRequestSelectFilterParam,
     Event,
     EventLearnerCertified,
     EventSeatConsumed,
-    PaymentMethodSavedByApiClient,
-    SeatOrderCreatedNextAction,
-    SeatOrderCreatedNextActionRedirect,
-    SeatOrderCreateRequestPaymentInvoiceParam,
     UnknownAuditEventActor,
     UnknownEvent,
-    UnknownSeatOrderCreatedNextAction,
 )
 from tests.fake_api import LEARNER_JSON, ORG_ID
 
 EVENTS: TypeAdapter[Event] = TypeAdapter(Event)
+AUDIT_EVENTS: TypeAdapter[AuditEvent] = TypeAdapter(AuditEvent)
 ACTORS: TypeAdapter[AuditEventActor] = TypeAdapter(AuditEventActor)
-NEXT_ACTIONS: TypeAdapter[SeatOrderCreatedNextAction] = TypeAdapter(
-    SeatOrderCreatedNextAction
-)
 
 CERTIFIED = {
     "eventId": "evt_01",
@@ -82,37 +80,48 @@ def test_comparing_the_tag_narrows_an_event_to_its_variant() -> None:
     assert certified_learner_id(seat) is None
 
 
-def redirect_url(action: SeatOrderCreatedNextAction) -> str | None:
-    if isinstance(action, UnknownSeatOrderCreatedNextAction):
+def acting_subject_id(actor: AuditEventActor) -> str | None:
+    if isinstance(actor, UnknownAuditEventActor):
         return None
-    if action.type == "redirect":
-        assert_type(action, SeatOrderCreatedNextActionRedirect)
-        return action.url
+    if actor.type == "user":
+        assert_type(actor, AuditEventActorUser)
+        return actor.subject_id
     return None
 
 
 def test_nested_unions_narrow_on_their_tag_too() -> None:
-    redirect = {"type": "redirect", "url": "https://pay.example/so_1"}
-
-    assert redirect_url(NEXT_ACTIONS.validate_python(redirect)) == (
-        "https://pay.example/so_1"
+    removed = AUDIT_EVENTS.validate_python(
+        {
+            "eventId": "aud_1",
+            "at": "2026-11-10T08:00:00Z",
+            "type": "member.removed",
+            "actorSubjectId": "sub_admin",
+            "actor": {"type": "user", "subjectId": "sub_admin"},
+            "subjectId": "sub_gone",
+            "wasAdmin": False,
+        }
     )
-    actor = ACTORS.validate_python({"type": "user", "subjectId": "sub_admin"})
-    assert isinstance(actor, AuditEventActorUser)
-    assert_type(actor.type, Literal["user"])
+
+    assert isinstance(removed, AuditEventMemberRemoved)
+    assert acting_subject_id(removed.actor) == "sub_admin"
     unknown_actor = ACTORS.validate_python({"type": "robot"})
     assert isinstance(unknown_actor, UnknownAuditEventActor)
     assert_type(unknown_actor.type, str)
+    assert acting_subject_id(unknown_actor) is None
 
 
-def test_a_saved_by_variant_is_typed_as_its_tag() -> None:
-    saved_by = PaymentMethodSavedByApiClient(type="api_client", name="HR sync")
+def test_a_variant_parsed_on_its_own_is_typed_as_its_tag() -> None:
+    actor = AuditEventActorClient.model_validate(
+        {"type": "client", "clientId": "cli_1"}
+    )
 
-    assert_type(saved_by.type, Literal["api_client"])
+    assert_type(actor.type, Literal["client"])
 
 
-def test_a_request_variant_requires_its_own_tag() -> None:
-    payment: SeatOrderCreateRequestPaymentInvoiceParam = {"method": "invoice"}
+def test_a_request_variant_requires_its_own_member() -> None:
+    select: EnrollmentsBatchRequestSelectFilterParam = {
+        "filter": {"course_id": "hipaa-essentials"}
+    }
 
-    assert payment["method"] == "invoice"
-    assert_type(payment["method"], Literal["invoice"])
+    assert_type(select["filter"], EnrollmentsBatchRequestSelectFilterFilterParam)
+    assert select["filter"] == {"course_id": "hipaa-essentials"}

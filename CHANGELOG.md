@@ -7,17 +7,16 @@ All notable changes to this library are documented here. It follows
 ## [Unreleased]
 
 The first release, to ship as 1.0.0 when the Developer API launches.
-Generated from the Developer API document release `waggish-wombat`.
+Generated from the Developer API document release `trimmed-2026-11-15`.
 
 ### Added
 
 - `TeachMeHipaa` and `AsyncTeachMeHipaa`, with the same surface, covering all
-  56 Developer API operations as resources and pydantic models generated
+  44 Developer API operations as resources and pydantic models generated
   from the shared SDK IR: Learners, Enrollments, Certificates, Certificate
-  verifications, Compliance, Courses, Members, Seats, Seat orders, the
-  payment method, Audit events, Webhook subscriptions, the Event log,
-  Operations, `auth.introspect` and Partners. Both are context managers that
-  close their `httpx` client.
+  verifications, Compliance, Courses, Members, Seats, Audit events, Webhook
+  subscriptions, the Event log, Operations and `auth.introspect`. Both are
+  context managers that close their `httpx` client.
 - Client credentials authentication with cached, single-flight Access tokens
   renewed 60 s before expiry, and one renewal and replay on a 401.
 - Live and Sandbox Environments, a `base_url` override, narrower `scopes`,

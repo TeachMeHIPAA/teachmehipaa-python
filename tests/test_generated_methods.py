@@ -33,7 +33,6 @@ from tests.fake_api import (
     token_json,
 )
 
-PARTNER_ID = "ptn_01JD8Z4N3QX5V7W9Y2B4C6D8EH"
 ENROLLMENT_ID = "enr_01JD8Z4N3QX5V7W9Y2B4C6D8EJ"
 SUBSCRIPTION_ID = "whs_01JD8Z4N3QX5V7W9Y2B4C6D8EK"
 CERTIFICATE_ID = "cert_01JD8Z4N3QX5V7W9Y2B4C6D8EM"
@@ -167,41 +166,30 @@ def test_a_batch_by_ids_sends_the_selected_ids(api: FakeApi) -> None:
     }
 
 
-def test_nested_params_are_sent_in_camel_case(api: FakeApi) -> None:
-    path = org("/seat-orders")
+def test_a_batch_by_filter_sends_the_nested_filter_in_camel_case(
+    api: FakeApi,
+) -> None:
+    path = org("/enrollments:batch")
     api.on(
         "POST",
         path,
         Reply(
-            status=201,
-            json={
-                "seatOrderId": "so_1",
-                "status": "requires_action",
-                "nextAction": {"type": "redirect", "url": "https://pay.example/so_1"},
-                "failure": None,
-            },
+            status=202,
+            json={"name": f"organizations/{ORG_ID}/operations/op_1", "done": False},
         ),
     )
 
-    order = make_client(api).seat_orders.create(
-        quantity=5,
-        payment={
-            "method": "hosted_checkout",
-            "return_url": "https://hr.example.com/billing/done",
-        },
-        client_reference="po-889",
+    operation = make_client(api).enrollments.batch_by_filter(
+        operation="remind",
+        select={"filter": {"status": "INVITED", "course_id": "hipaa-essentials"}},
     )
 
-    assert order.next_action is not None
-    assert order.next_action.type == "redirect"
+    assert operation.done is False
     [request] = api.requests_to("POST", path)
+    assert "idempotency-key" in request.headers
     assert sent_json(request) == {
-        "quantity": 5,
-        "payment": {
-            "method": "hosted_checkout",
-            "returnUrl": "https://hr.example.com/billing/done",
-        },
-        "clientReference": "po-889",
+        "operation": "remind",
+        "select": {"filter": {"status": "INVITED", "courseId": "hipaa-essentials"}},
     }
 
 
@@ -221,22 +209,23 @@ def test_a_patch_is_not_retried_after_a_503(api: FakeApi) -> None:
     assert len(api.requests_to("PATCH", path)) == 1
 
 
-# --- Partner methods ------------------------------------------------------
+# --- Paths without an Organization ---------------------------------------
 
 
-def test_partner_organizations_are_listed_by_partner_id(api: FakeApi) -> None:
-    path = f"/partners/{PARTNER_ID}/organizations"
+def test_a_list_without_an_organization_pages_without_the_binding(
+    api: FakeApi,
+) -> None:
     api.on(
         "GET",
-        path,
+        "/courses",
         Reply(
             json={
                 "items": [
                     {
-                        "orgId": "org_child",
-                        "name": "Child Clinic",
-                        "createdAt": "2026-10-01T00:00:00Z",
-                        "grantActive": True,
+                        "courseId": "hipaa-essentials",
+                        "title": "HIPAA Essentials",
+                        "courseVersion": "2026.1",
+                        "passingThreshold": 0.8,
                     }
                 ],
                 "nextCursor": "c_2",
@@ -248,57 +237,44 @@ def test_partner_organizations_are_listed_by_partner_id(api: FakeApi) -> None:
         client_id=CLIENT_ID, client_secret=CLIENT_SECRET, http_client=api.sync_client()
     )
 
-    page = client.partners.organizations.list(PARTNER_ID, limit=10)
+    page = client.courses.list(limit=10)
 
     assert isinstance(page, SyncPage)
-    assert [o.org_id for o in page.items] == ["org_child"]
-    assert page.items[0].created_at == datetime(2026, 10, 1, tzinfo=timezone.utc)
+    assert [c.course_id for c in page.items] == ["hipaa-essentials"]
     assert page.next_cursor == "c_2"
     assert page.last_response.request_id == REQUEST_ID
-    [request] = api.requests_to("GET", path)
+    [request] = api.requests_to("GET", "/courses")
     assert request.url.params["limit"] == "10"
-    # Partner methods never resolve the Organization binding.
     assert api.requests_to("GET", "/auth/introspection") == []
 
 
-def test_creating_a_partner_organization_returns_its_refresh_token(
+def test_a_retrieve_without_an_organization_parses_its_timestamps(
     api: FakeApi,
 ) -> None:
-    path = f"/partners/{PARTNER_ID}/organizations"
+    path = "/certificate-verifications/aB3dE9"
     api.on(
-        "POST",
+        "GET",
         path,
         Reply(
-            status=201,
             json={
-                "orgId": "org_child",
-                "name": "Child Clinic",
-                "createdAt": "2026-10-01T00:00:00Z",
-                "grant": {"grantId": "grt_1", "scopes": ["learners:read"]},
-                "refresh_token": "tmh_rt_secret",
-            },
+                "status": "valid",
+                "learnerName": "Ana Lima",
+                "courseTitle": "HIPAA Essentials",
+                "issuedAt": "2026-11-02T10:30:00Z",
+                "expiresAt": "2027-11-02T10:30:00Z",
+                "issuer": "TeachMeHIPAA",
+            }
         ),
     )
     client = TeachMeHipaa(
         client_id=CLIENT_ID, client_secret=CLIENT_SECRET, http_client=api.sync_client()
     )
 
-    created = client.partners.organizations.create(
-        PARTNER_ID,
-        name="Child Clinic",
-        admin_email="admin@child.example",
-        scopes=["learners:read"],
-    )
+    verification = client.certificate_verifications.retrieve("aB3dE9")
 
-    assert created.refresh_token == "tmh_rt_secret"
-    assert created.grant.scopes == ["learners:read"]
-    [request] = api.requests_to("POST", path)
-    assert "idempotency-key" in request.headers
-    assert sent_json(request) == {
-        "name": "Child Clinic",
-        "adminEmail": "admin@child.example",
-        "scopes": ["learners:read"],
-    }
+    assert verification.issued_at == datetime(2026, 11, 2, 10, 30, tzinfo=timezone.utc)
+    assert len(api.requests_to("GET", path)) == 1
+    assert api.requests_to("GET", "/auth/introspection") == []
 
 
 # --- PATCH and DELETE -----------------------------------------------------
@@ -332,7 +308,7 @@ def test_deleting_a_subscription_succeeds_on_204(api: FakeApi) -> None:
 
 
 async def test_async_delete_succeeds_on_204(api: FakeApi) -> None:
-    path = org("/billing/payment-method")
+    path = org(f"/webhook-subscriptions/{SUBSCRIPTION_ID}")
     api.on("DELETE", path, Reply(status=204, text="", content_type="text/plain"))
     client = AsyncTeachMeHipaa(
         client_id=CLIENT_ID,
@@ -342,7 +318,7 @@ async def test_async_delete_succeeds_on_204(api: FakeApi) -> None:
         sleep=FakeAsyncSleep(),
     )
 
-    await client.payment_method.delete()
+    await client.webhook_subscriptions.delete(SUBSCRIPTION_ID)
 
     assert len(api.requests_to("DELETE", path)) == 1
 

@@ -29,7 +29,6 @@ CERTIFICATE_ID = "cert_01JD8F"
 COURSE_ID = "hipaa-2026"
 SUBSCRIPTION_ID = "whs_01JD8D"
 OPERATION_ID = "op-01JD8H"
-PARTNER_ID = "ptn_01JD8E2C3D4E5F6G7H8J9K0M1N"
 TINY_ID = "cAbCdEfGhIjKl"
 TOKEN = "contract-test-token"
 
@@ -68,12 +67,12 @@ async def test_the_harness_catches_a_request_that_breaks_the_spec(
     violations: Violations,
 ) -> None:
     with pytest.raises(InvalidRequestError):
-        sync_client.seat_orders.quote(quantity=0)
+        sync_client.learners.list(limit=0)
     with pytest.raises(InvalidRequestError):
-        await async_client.seat_orders.quote(quantity=0)
+        await async_client.learners.list(limit=0)
 
     assert len(violations.found) == 2
-    assert all("quantity" in violation for violation in violations.found)
+    assert all("limit" in violation for violation in violations.found)
     violations.found.clear()
 
 
@@ -209,16 +208,6 @@ async def test_downloads_a_certificate_pdf(
         assert (pdf.content_type or "").startswith("application/pdf")
 
 
-async def test_quotes_a_seat_order(
-    sync_client: TeachMeHipaa, async_client: AsyncTeachMeHipaa
-) -> None:
-    for quote in (
-        sync_client.seat_orders.quote(quantity=10, currency="usd"),
-        await async_client.seat_orders.quote(quantity=10, currency="usd"),
-    ):
-        assert isinstance(quote.quantity, int)
-
-
 async def test_creates_a_webhook_subscription_with_its_signing_secret(
     sync_client: TeachMeHipaa, async_client: AsyncTeachMeHipaa
 ) -> None:
@@ -282,16 +271,3 @@ async def test_introspects_the_access_token(
         await async_client.auth.introspect(),
     ):
         assert isinstance(introspection.actor_type, str)
-
-
-async def test_lists_a_partners_customer_organizations(
-    sync_client: TeachMeHipaa, async_client: AsyncTeachMeHipaa
-) -> None:
-    pages = (
-        sync_client.partners.organizations.list(PARTNER_ID, limit=10),
-        await async_client.partners.organizations.list(PARTNER_ID, limit=10),
-    )
-
-    for page in pages:
-        for organization in page.items:
-            assert isinstance(organization.org_id, str)

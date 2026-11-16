@@ -16,9 +16,6 @@ from .enrollments import AsyncEnrollments, Enrollments
 from .learners import AsyncLearners, Learners
 from .members import AsyncMembers, Members
 from .operations import AsyncOperations, Operations
-from .partners import AsyncPartners, Partners
-from .payment_method import AsyncPaymentMethod, PaymentMethod
-from .seat_orders import AsyncSeatOrders, SeatOrders
 from .seats import AsyncSeats, Seats
 from .webhook_subscriptions import AsyncWebhookSubscriptions, WebhookSubscriptions
 
@@ -37,9 +34,6 @@ class SyncResources:
     learners: Learners
     members: Members
     operations: Operations
-    partners: Partners
-    payment_method: PaymentMethod
-    seat_orders: SeatOrders
     seats: Seats
     webhook_subscriptions: WebhookSubscriptions
 
@@ -55,9 +49,6 @@ class SyncResources:
         self.learners = Learners(pipeline)
         self.members = Members(pipeline)
         self.operations = Operations(pipeline)
-        self.partners = Partners(pipeline)
-        self.payment_method = PaymentMethod(pipeline)
-        self.seat_orders = SeatOrders(pipeline)
         self.seats = Seats(pipeline)
         self.webhook_subscriptions = WebhookSubscriptions(pipeline)
 
@@ -76,9 +67,6 @@ class AsyncResources:
     learners: AsyncLearners
     members: AsyncMembers
     operations: AsyncOperations
-    partners: AsyncPartners
-    payment_method: AsyncPaymentMethod
-    seat_orders: AsyncSeatOrders
     seats: AsyncSeats
     webhook_subscriptions: AsyncWebhookSubscriptions
 
@@ -94,8 +82,5 @@ class AsyncResources:
         self.learners = AsyncLearners(pipeline)
         self.members = AsyncMembers(pipeline)
         self.operations = AsyncOperations(pipeline)
-        self.partners = AsyncPartners(pipeline)
-        self.payment_method = AsyncPaymentMethod(pipeline)
-        self.seat_orders = AsyncSeatOrders(pipeline)
         self.seats = AsyncSeats(pipeline)
         self.webhook_subscriptions = AsyncWebhookSubscriptions(pipeline)

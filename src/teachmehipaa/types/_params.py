@@ -2,7 +2,6 @@
 # Regenerate with `uv run python scripts/generate.py`.
 
 from collections.abc import Sequence
-from typing import Literal, TypeAlias
 
 from typing_extensions import Required, TypedDict
 
@@ -34,32 +33,3 @@ class LearnerBatchUpsertRequestItemsItemParam(TypedDict, total=False):
     name: str
     external_id: str
     course_id: str
-
-
-class SeatOrderCreateRequestPaymentHostedCheckoutParam(TypedDict, total=False):
-    method: Required[Literal["hosted_checkout"]]
-    return_url: Required[str]
-
-
-class SeatOrderCreateRequestPaymentInvoiceParam(TypedDict, total=False):
-    method: Required[Literal["invoice"]]
-    days_until_due: int
-
-
-class SeatOrderCreateRequestPaymentSavedPaymentMethodParam(TypedDict, total=False):
-    method: Required[Literal["saved_payment_method"]]
-    return_url: str
-    payment_method_id: str
-    expected_total: int
-    currency: str
-
-
-SeatOrderCreateRequestPaymentParam: TypeAlias = (
-    SeatOrderCreateRequestPaymentHostedCheckoutParam
-    | SeatOrderCreateRequestPaymentInvoiceParam
-    | SeatOrderCreateRequestPaymentSavedPaymentMethodParam
-)
-"""How to pay: `hosted_checkout` with a `returnUrl`, `saved_payment_method` with the
-card's `paymentMethodId`, or `invoice`. A `returnUrl` must be https and on your API
-client's allowlist.
-"""
