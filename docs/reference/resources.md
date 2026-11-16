@@ -2,11 +2,11 @@
 
 # Resource reference
 
-Every resource and method of the client, generated from the SDK IR of the Developer API document release `trimmed-2026-11-15`.
+Every resource and method on the client, generated from the SDK IR for Developer API document release `trimmed-2026-11-15`. `code-samples.json`, next to this file, holds a runnable sample for each operation.
 
-Signatures show the synchronous `TeachMeHipaa` client. `AsyncTeachMeHipaa` has the same methods, awaited, returning `AsyncPage`, `AsyncOperation` and `AsyncBinaryStream` in place of `SyncPage`, `Operation` and `BinaryStream`. Every method also takes `max_retries`, `timeout` and `request_id` (see [Errors and retries](../guides/errors-and-retries.md)). Arguments shown as `= ...` are optional and not sent when left out. Ids in the path are positional; everything else is a keyword. Model and parameter types are in `teachmehipaa.types`.
+Each signature is written for the sync `TeachMeHipaa` client. On `AsyncTeachMeHipaa` you `await` the same method and get `AsyncPage`, `AsyncOperation` or `AsyncBinaryStream` where the sync client returns `SyncPage`, `Operation` or `BinaryStream` (see [Async support](../guides/async.md)). Path ids go first, positionally; every other argument is keyword-only. An argument shown as `= ...` is optional, and the client leaves it out of the request when you do. On top of the arguments listed, every method takes `max_retries`, `timeout` and `request_id` (see [Retries and timeouts](../guides/retries-and-timeouts.md)). Import model and parameter types from `teachmehipaa.types`.
 
-Organization-scoped paths contain `{orgId}`, which the client fills in from its Organization binding.
+You never pass `{orgId}`: the client fills it in from the Organization its credentials belong to.
 
 ## Resources
 
@@ -26,7 +26,7 @@ Organization-scoped paths contain `{orgId}`, which the client fills in from its 
 
 ## audit_events
 
-`client.audit_events`: `AuditEvents`, or `AsyncAuditEvents` on the async client.
+`client.audit_events` is a `AuditEvents` (`AsyncAuditEvents` on the async client).
 
 ### `audit_events.list`
 
@@ -51,12 +51,12 @@ Returns a list of the organization's audit events, newest first. Filter by `type
 
 - **Scopes:** `audit:read`
 - **Returns:** `SyncPage[AuditEvent]`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Iterate the page for every item across pages.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Loop over the page with `for` to get items from every page.
 
 ## auth
 
-`client.auth`: `Auth`, or `AsyncAuth` on the async client.
+`client.auth` is a `Auth` (`AsyncAuth` on the async client).
 
 ### `auth.introspect`
 
@@ -72,11 +72,11 @@ Describes the access token you call with: whether it belongs to an API client or
 
 - **Scopes:** any Access token
 - **Returns:** `TokenIntrospection`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ## certificate_verifications
 
-`client.certificate_verifications`: `CertificateVerifications`, or `AsyncCertificateVerifications` on the async client.
+`client.certificate_verifications` is a `CertificateVerifications` (`AsyncCertificateVerifications` on the async client).
 
 ### `certificate_verifications.retrieve`
 
@@ -90,13 +90,13 @@ Verify a certificate.
 
 Verifies the certificate behind a `https://tme.so/{tinyId}` link. Needs no access token. Limited to 60 requests a minute per IP address.
 
-- **Scopes:** none: a public method, sent without an Access token
+- **Scopes:** none (public: the client sends no Access token)
 - **Returns:** `CertificateVerification`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ## certificates
 
-`client.certificates`: `Certificates`, or `AsyncCertificates` on the async client.
+`client.certificates` is a `Certificates` (`AsyncCertificates` on the async client).
 
 ### `certificates.download_pdf`
 
@@ -117,8 +117,8 @@ Downloads the certificate as a PDF. Revoked and expired certificates are waterma
 
 - **Scopes:** `certificates:read`
 - **Returns:** `BinaryResponse | BinaryStream`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Pass `stream=True` to read the file as it arrives.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Pass `stream=True` to read the file in chunks as it arrives.
 
 ### `certificates.export`
 
@@ -138,9 +138,9 @@ Exports the organization's certificate records as CSV. Requires the `certificate
 
 - **Scopes:** `certificates:read`
 - **Returns:** `Operation`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ### `certificates.list`
 
@@ -161,8 +161,8 @@ Returns a list of the organization's certificates. Pass `subjectId` to list one 
 
 - **Scopes:** `certificates:read`
 - **Returns:** `SyncPage[Certificate]`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Iterate the page for every item across pages.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Loop over the page with `for` to get items from every page.
 
 ### `certificates.retrieve`
 
@@ -178,7 +178,7 @@ Retrieves a certificate.
 
 - **Scopes:** `certificates:read`
 - **Returns:** `Certificate`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `certificates.retrieve_links`
 
@@ -194,11 +194,11 @@ Retrieves the certificate's LinkedIn add-to-profile link and its public `tme.so`
 
 - **Scopes:** `certificates:read`
 - **Returns:** `CertificateLinks`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ## compliance
 
-`client.compliance`: `Compliance`, or `AsyncCompliance` on the async client.
+`client.compliance` is a `Compliance` (`AsyncCompliance` on the async client).
 
 ### `compliance.retrieve`
 
@@ -214,11 +214,11 @@ Counts the organization's learners in one course by status. Removed learners are
 
 - **Scopes:** `compliance:read`
 - **Returns:** `ComplianceSummary`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ## courses
 
-`client.courses`: `Courses`, or `AsyncCourses` on the async client.
+`client.courses` is a `Courses` (`AsyncCourses` on the async client).
 
 ### `courses.list`
 
@@ -232,10 +232,10 @@ List all courses.
 
 Returns a list of the courses in the public catalog. Needs no access token.
 
-- **Scopes:** none: a public method, sent without an Access token
+- **Scopes:** none (public: the client sends no Access token)
 - **Returns:** `SyncPage[Course]`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Iterate the page for every item across pages.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Loop over the page with `for` to get items from every page.
 
 ### `courses.retrieve`
 
@@ -254,14 +254,14 @@ Retrieve a course.
 
 Retrieves a course from the public catalog.
 
-- **Scopes:** none: a public method, sent without an Access token
+- **Scopes:** none (public: the client sends no Access token)
 - **Returns:** `Course | NotModified`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Takes `if_none_match` and returns `NotModified` when your copy is current.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Pass `if_none_match=` to get `NotModified` back when your copy is current.
 
 ## enrollments
 
-`client.enrollments`: `Enrollments`, or `AsyncEnrollments` on the async client.
+`client.enrollments` is a `Enrollments` (`AsyncEnrollments` on the async client).
 
 ### `enrollments.batch`
 
@@ -282,8 +282,8 @@ Reminds, resends, cancels, renews, archives or unarchives up to 500 enrollments 
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `EnrollmentsBatchResults`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `enrollments.batch_by_filter`
 
@@ -304,9 +304,9 @@ Reminds, resends, cancels, renews, archives or unarchives up to 500 enrollments 
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `Operation`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ### `enrollments.cancel`
 
@@ -328,8 +328,8 @@ Cancels an invite that hasn't been accepted yet and returns its seat to the pool
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `CancelEnrollmentResponse`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `enrollments.create`
 
@@ -351,8 +351,8 @@ Invites a person to a course, creating their profile if needed, and uses one sea
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `Enrollment`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `enrollments.export`
 
@@ -372,9 +372,9 @@ Exports the organization's enrollments as CSV. Requires the `enrollments:read` s
 
 - **Scopes:** `enrollments:read`
 - **Returns:** `Operation`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ### `enrollments.import_`
 
@@ -395,9 +395,9 @@ Invites everyone in a CSV file with an `email` column (and optional `name` and `
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `Operation`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ### `enrollments.list`
 
@@ -421,8 +421,8 @@ Returns a list of the organization's enrollments. Filter by `status`, `courseId`
 
 - **Scopes:** `enrollments:read`
 - **Returns:** `SyncPage[OrgEnrollmentListItem]`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Iterate the page for every item across pages.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Loop over the page with `for` to get items from every page.
 
 ### `enrollments.preview_import`
 
@@ -443,8 +443,8 @@ Invites everyone in a CSV file with an `email` column (and optional `name` and `
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `ImportPreview`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `enrollments.remind`
 
@@ -465,8 +465,8 @@ Emails the learner again: the invitation if they haven't joined, or a reminder l
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `EnrollmentActionAccepted`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `enrollments.renew`
 
@@ -487,8 +487,8 @@ Starts the next certification cycle for a certified learner and invites them aga
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `Enrollment`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `enrollments.resend_invite`
 
@@ -509,8 +509,8 @@ Sends a pending invite again, within the same cycle. To invite a certified learn
 
 - **Scopes:** `enrollments:write`
 - **Returns:** `EnrollmentActionAccepted`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `enrollments.retrieve`
 
@@ -531,14 +531,14 @@ Retrieves an enrollment. Requires the `enrollments:read` scope.
 
 - **Scopes:** `enrollments:read`
 - **Returns:** `Enrollment | NotModified`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Takes `if_none_match` and returns `NotModified` when your copy is current.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Pass `if_none_match=` to get `NotModified` back when your copy is current.
 
 ## events
 
-`client.events`: `Events`, or `AsyncEvents` on the async client.
+`client.events` is a `Events` (`AsyncEvents` on the async client).
 
-`client.events.tail(...)` is hand-written: it reads the Event log from a saved position, once or following new Events. See [Pagination and Events](../guides/pagination-and-events.md#tailing-the-event-log).
+`client.events.tail(...)` is written by hand rather than generated. It walks the Event log from a saved position, stopping once caught up or following new Events. See [The Event log](../guides/events.md#follow-the-log-from-where-you-left-off).
 
 ### `events.list`
 
@@ -559,12 +559,12 @@ Returns a list of the organization's events from the last 30 days, oldest first.
 
 - **Scopes:** `webhooks:manage` or `audit:read`
 - **Returns:** `SyncPage[Event]`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Iterate the page for every item across pages.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Loop over the page with `for` to get items from every page.
 
 ## learners
 
-`client.learners`: `Learners`, or `AsyncLearners` on the async client.
+`client.learners` is a `Learners` (`AsyncLearners` on the async client).
 
 ### `learners.batch_upsert`
 
@@ -586,9 +586,9 @@ Creates or retrieves up to 500 learners in one request. Each item works like cre
 
 - **Scopes:** `learners:write`
 - **Returns:** `Operation`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ### `learners.create`
 
@@ -613,8 +613,8 @@ Adds a person to the organization and invites them to a course in one call, usin
 
 - **Scopes:** `learners:write`
 - **Returns:** `LearnerWriteResult`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `learners.create_launch_link`
 
@@ -635,7 +635,7 @@ Creates a link that opens the course with the learner already signed in, for a "
 
 - **Scopes:** `learners:write`
 - **Returns:** `LearnerLaunchLink`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `learners.export`
 
@@ -657,9 +657,9 @@ Exports the organization's learners in one course as CSV, optionally only those 
 
 - **Scopes:** `learners:read`
 - **Returns:** `Operation`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ### `learners.list`
 
@@ -683,8 +683,8 @@ Returns a list of the organization's learners in one course, with each learner's
 
 - **Scopes:** `learners:read`
 - **Returns:** `SyncPage[Learner]`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Iterate the page for every item across pages.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Loop over the page with `for` to get items from every page.
 
 ### `learners.offboard`
 
@@ -707,9 +707,9 @@ Removes a learner from the organization. A learner who hasn't started has their 
 
 - **Scopes:** `learners:write`
 - **Returns:** `Learner`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Takes `if_match` to refuse the call if the object changed.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Pass `if_match=` to make the call fail if the object changed.
 
 ### `learners.remind`
 
@@ -731,8 +731,8 @@ Emails the learner a reminder: the invite again if they haven't started, or a nu
 
 - **Scopes:** `learners:write`
 - **Returns:** `LearnerRemindAccepted`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `learners.retrieve`
 
@@ -748,7 +748,7 @@ Retrieves a learner's status in one course.
 
 - **Scopes:** `learners:read`
 - **Returns:** `Learner`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `learners.update`
 
@@ -772,9 +772,9 @@ Updates a learner's `name` or `externalId`; parameters you don't send are left u
 
 - **Scopes:** `learners:write`
 - **Returns:** `Learner`
-- Never retried: it is not safe to replay.
-- Requires `if_match` (an ETag or the object read); a stale one raises `PreconditionFailedError`.
-- A merge patch: omitted arguments stay unchanged; `None` clears a field.
+- Never retried, since a replay could repeat the change.
+- Requires `if_match=` (an ETag or the model you read); a stale one raises `PreconditionFailedError`.
+- A merge patch: fields you leave out keep their value, `None` clears one.
 
 ### `learners.upsert_by_external_id`
 
@@ -800,12 +800,12 @@ Makes sure a learner exists for your own id. Creates and invites the learner the
 
 - **Scopes:** `learners:write`
 - **Returns:** `LearnerWriteResult`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ## members
 
-`client.members`: `Members`, or `AsyncMembers` on the async client.
+`client.members` is a `Members` (`AsyncMembers` on the async client).
 
 ### `members.list`
 
@@ -827,8 +827,8 @@ Returns a list of the organization's members, its admins and learners. Pass `rol
 
 - **Scopes:** `members:read`
 - **Returns:** `SyncPage[MemberListItem]`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Iterate the page for every item across pages.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Loop over the page with `for` to get items from every page.
 
 ### `members.retrieve`
 
@@ -844,11 +844,11 @@ Retrieves a member of the organization.
 
 - **Scopes:** `members:read`
 - **Returns:** `Member`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ## operations
 
-`client.operations`: `Operations`, or `AsyncOperations` on the async client.
+`client.operations` is a `Operations` (`AsyncOperations` on the async client).
 
 ### `operations.retrieve`
 
@@ -864,12 +864,12 @@ Retrieves a bulk operation and its result. Operations are kept for 24 hours.
 
 - **Scopes:** any Access token
 - **Returns:** `Operation`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ## seats
 
-`client.seats`: `Seats`, or `AsyncSeats` on the async client.
+`client.seats` is a `Seats` (`AsyncSeats` on the async client).
 
 ### `seats.retrieve`
 
@@ -885,11 +885,11 @@ Retrieves how many seats the organization has, how many are assigned and how man
 
 - **Scopes:** `enrollments:read`
 - **Returns:** `SeatsInventory`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ## webhook_subscriptions
 
-`client.webhook_subscriptions`: `WebhookSubscriptions`, or `AsyncWebhookSubscriptions` on the async client.
+`client.webhook_subscriptions` is a `WebhookSubscriptions` (`AsyncWebhookSubscriptions` on the async client).
 
 ### `webhook_subscriptions.create`
 
@@ -912,8 +912,8 @@ Subscribes an HTTPS endpoint to event types and creates its signing secret. Requ
 
 - **Scopes:** `org:admin` or `webhooks:manage`
 - **Returns:** `WebhookSubscriptionCreated`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
 
 ### `webhook_subscriptions.delete`
 
@@ -929,7 +929,7 @@ Deletes a webhook subscription and its signing secret. Requires the `webhooks:ma
 
 - **Scopes:** `org:admin` or `webhooks:manage`
 - **Returns:** `None`
-- Never retried: it is not safe to replay.
+- Never retried, since a replay could repeat the change.
 
 ### `webhook_subscriptions.list`
 
@@ -949,8 +949,8 @@ Returns a list of the organization's webhook subscriptions. Signing secrets are 
 
 - **Scopes:** `org:admin` or `webhooks:manage`
 - **Returns:** `SyncPage[WebhookSubscription]`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Iterate the page for every item across pages.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Loop over the page with `for` to get items from every page.
 
 ### `webhook_subscriptions.redrive`
 
@@ -971,9 +971,9 @@ Delivers the subscription's failed events again. Requires the `webhooks:manage` 
 
 - **Scopes:** `org:admin` or `webhooks:manage`
 - **Returns:** `Operation[WebhookDeliveryResult]`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ### `webhook_subscriptions.retrieve`
 
@@ -994,8 +994,8 @@ Retrieves a webhook subscription. Requires the `webhooks:manage` or `org:admin` 
 
 - **Scopes:** `org:admin` or `webhooks:manage`
 - **Returns:** `WebhookSubscription | NotModified`
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Takes `if_none_match` and returns `NotModified` when your copy is current.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Pass `if_none_match=` to get `NotModified` back when your copy is current.
 
 ### `webhook_subscriptions.test`
 
@@ -1016,9 +1016,9 @@ Sends a signed test delivery to the subscription's endpoint, so you can check yo
 
 - **Scopes:** `org:admin` or `webhooks:manage`
 - **Returns:** `Operation[WebhookDeliveryResult]`
-- Sends a generated `Idempotency-Key`, reused by its retries; pass `idempotency_key` to set your own.
-- Retried on network errors, 409 `conflict`, 429 and 5xx.
-- Returns an Operation: call `wait()` for the result.
+- Sends a generated `Idempotency-Key` that its retries reuse; pass `idempotency_key=` to choose your own.
+- Retried after network errors, 409 `conflict`, 429 and 5xx.
+- Returns an Operation; `wait()` returns it once it's done.
 
 ### `webhook_subscriptions.update`
 
@@ -1044,13 +1044,13 @@ Updates a webhook subscription; parameters you don't send are left unchanged. Se
 
 - **Scopes:** `org:admin` or `webhooks:manage`
 - **Returns:** `WebhookSubscription`
-- Never retried: it is not safe to replay.
-- Requires `if_match` (an ETag or the object read); a stale one raises `PreconditionFailedError`.
-- A merge patch: omitted arguments stay unchanged; `None` clears a field.
+- Never retried, since a replay could repeat the change.
+- Requires `if_match=` (an ETag or the model you read); a stale one raises `PreconditionFailedError`.
+- A merge patch: fields you leave out keep their value, `None` clears one.
 
 ## Event types
 
-Events from `events.list`, `events.tail` and `Webhook.construct_event` are a union of these models; an Event type this version doesn't know arrives as `UnknownEvent`.
+`events.list`, `events.tail` and `Webhook.construct_event` give you one of these models per Event. An Event type this version doesn't know arrives as `UnknownEvent`.
 
 | Event type | Model | `data` |
 | --- | --- | --- |

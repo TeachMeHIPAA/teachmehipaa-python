@@ -14,11 +14,14 @@ anchors included.
 
 from __future__ import annotations
 
+import ast
 import asyncio
 import base64
 import json
 import logging
 import re
+import subprocess
+import sys
 import threading
 import urllib.parse
 from collections.abc import Callable
@@ -56,6 +59,7 @@ from tests.fake_api import (
     problem,
     token_json,
 )
+from tests.test_generated_surface import EXPECTED_METHODS
 
 ROOT = Path(__file__).resolve().parents[1]
 DOCS = [ROOT / "README.md", *sorted((ROOT / "docs" / "guides").glob("*.md"))]
@@ -305,7 +309,7 @@ def event(event_id: str) -> dict[str, Any]:
 def test_every_doc_is_checked() -> None:
     guides = {path.name for path in DOCS if path.parent.name == "guides"}
 
-    assert {"getting-started.md", "webhooks.md", "testing.md"} <= guides
+    assert {"quickstart.md", "async.md", "webhooks.md", "testing.md"} <= guides
 
 
 def test_every_python_sample_is_tagged_once_and_run() -> None:
@@ -691,6 +695,75 @@ def _async(h: Harness) -> None:
     assert len(h.api.requests_to("GET", "/auth/introspection")) == 1
 
 
+@runs("readme-async")
+def _readme_async(h: Harness) -> None:
+    h.api.on("GET", "/auth/introspection", Reply(json=introspection_json()))
+    h.api.on("GET", f"{ORG}/learners/{LEARNER_ID}", Reply(json=LEARNER))
+
+    h.run("readme-async")
+
+    assert h.printed() == ["Ana Lima in_progress"]
+
+
+PDF = b"%PDF-1.7 certificate"
+
+
+@runs("async-files")
+def _async_files(h: Harness) -> None:
+    h.api.on("GET", "/auth/introspection", Reply(json=introspection_json()))
+    h.api.on(
+        "POST",
+        f"{ORG}/certificates:export",
+        Reply(
+            status=202,
+            json=operation(
+                "certificates:export",
+                {
+                    "format": "csv",
+                    "contentType": "text/csv; charset=utf-8",
+                    "filename": f"certificates-{ORG_ID}.csv",
+                    "rowCount": 1,
+                    "dataBase64": base64.b64encode(CERTIFICATES_CSV.encode()).decode(),
+                },
+            ),
+        ),
+    )
+    h.api.on(
+        "GET",
+        f"{ORG}/certificates/cert_01JD8F3G5H7J9K1M3N5P7Q9R1S/content",
+        Reply(content=PDF, content_type="application/pdf"),
+    )
+
+    h.run("async-files")
+
+    work = Path.cwd()
+    assert (work / "certificates.csv").read_bytes() == CERTIFICATES_CSV.encode()
+    assert (work / "certificate.pdf").read_bytes() == PDF
+
+
+@runs("async-fastapi")
+def _async_fastapi(h: Harness) -> None:
+    h.api.on("GET", "/auth/introspection", Reply(json=introspection_json()))
+    h.api.on("GET", f"{ORG}/compliance", Reply(json=COMPLIANCE))
+    app = h.run("async-fastapi")["app"]
+    assert isinstance(app, FastAPI)
+
+    async def get_compliance() -> httpx.Response:
+        # ASGITransport skips the lifespan, so run it around the request.
+        async with app.router.lifespan_context(app):
+            transport = httpx.ASGITransport(app=app)
+            async with httpx.AsyncClient(
+                transport=transport, base_url="http://testserver"
+            ) as asgi_client:
+                return await asgi_client.get("/compliance")
+
+    response = asyncio.run(get_compliance())
+
+    assert response.status_code == 200
+    assert response.json() == {"compliant_rate": 0.75}
+    assert len(h.api.requests_to("POST", "/auth/token")) == 1
+
+
 @runs("configuration")
 def _configuration(h: Harness) -> None:
     h.run("configuration")
@@ -921,6 +994,90 @@ def _timeouts(h: Harness) -> None:
         "pool": 30.0,
     }
     assert h.printed() == ["1"]
+
+
+# --- API reference samples -------------------------------------------------
+#
+# `scripts/generate.py` writes one sample per operation to
+# `docs/reference/code-samples.json`, for the API reference's language
+# picker. They name real credentials and ids, so they are type-checked and
+# linted here but never run.
+
+CODE_SAMPLES = ROOT / "docs" / "reference" / "code-samples.json"
+
+
+def _code_samples() -> dict[str, str]:
+    samples: dict[str, str] = json.loads(CODE_SAMPLES.read_text())["samples"]
+    return samples
+
+
+def test_code_samples_cover_every_operation() -> None:
+    document = json.loads(CODE_SAMPLES.read_text())
+    ir = json.loads((ROOT / "openapi" / "sdk-ir.json").read_text())
+    operations = {
+        method["operationId"]
+        for resource in ir["resources"]
+        for method in resource["methods"]
+    }
+
+    assert document["language"] == "python"
+    assert document["release"] == (ROOT / "OPENAPI_VERSION").read_text().strip()
+    assert sorted(document["samples"]) == sorted(operations)
+
+
+def _client_calls(code: str) -> set[str]:
+    """`resource.method` for every `client.<resource>.<method>(...)` call."""
+    calls = set()
+    for node in ast.walk(ast.parse(code)):
+        if not isinstance(node, ast.Call):
+            continue
+        parts: list[str] = []
+        target = node.func
+        while isinstance(target, ast.Attribute):
+            parts.insert(0, target.attr)
+            target = target.value
+        if isinstance(target, ast.Name) and target.id == "client" and parts:
+            calls.add(".".join(parts))
+    return calls
+
+
+@pytest.mark.parametrize("operation", sorted(_code_samples()))
+def test_code_sample_calls_its_operation(operation: str) -> None:
+    code = _code_samples()[operation]
+    # Where two methods share an operationId, the sample shows the first.
+    method = EXPECTED_METHODS[operation][0]
+
+    assert method in _client_calls(code)
+    assert 'environment="sandbox"' in code
+
+
+def test_code_samples_type_check_and_lint(tmp_path: Path) -> None:
+    files = []
+    for operation, code in _code_samples().items():
+        path = tmp_path / f"sample_{operation}.py"
+        path.write_text(code)
+        files.append(str(path))
+
+    config = str(ROOT / "pyproject.toml")
+    stdout, stderr, status = mypy.api.run(["--config-file", config, *files])
+    lint = subprocess.run(  # noqa: S603
+        [
+            sys.executable,
+            "-m",
+            "ruff",
+            "check",
+            "--no-cache",
+            "--config",
+            config,
+            *files,
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    assert status == 0, stdout + stderr
+    assert lint.returncode == 0, lint.stdout + lint.stderr
 
 
 # A link target, optionally with an anchor, in a Markdown link or image.

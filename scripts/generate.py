@@ -4,8 +4,9 @@
     uv run python scripts/generate.py --check  # fail if they are stale
 
 Reads only `openapi/sdk-ir.json` (validated against `sdk-ir.schema.json`) and
-writes `src/teachmehipaa/types/`, `src/teachmehipaa/resources/` and the
-Markdown reference `docs/reference/resources.md`. The output is
+writes `src/teachmehipaa/types/`, `src/teachmehipaa/resources/`, the
+Markdown reference `docs/reference/resources.md` and the API reference's
+Python samples, `docs/reference/code-samples.json`. The output is
 byte-for-byte deterministic, and the Python is ruff-formatted. Any IR shape
 this generator has no rule for stops it with an error rather than guessing.
 """
@@ -38,6 +39,10 @@ PACKAGE = ROOT / "src" / "teachmehipaa"
 GENERATED_DIRS = ("types", "resources")
 EXTENSIONS = PACKAGE / "_extensions"
 REFERENCE = ROOT / "docs" / "reference" / "resources.md"
+CODE_SAMPLES = ROOT / "docs" / "reference" / "code-samples.json"
+OPENAPI_VERSION = ROOT / "OPENAPI_VERSION"
+# Samples are formatted in the scratch directory under this name.
+SAMPLES_DIR = "_samples"
 
 # Top-level resources with hand-written methods, by IR path. The generator
 # names their classes `<Name>Base` and `Async<Name>Base`;
@@ -48,10 +53,10 @@ EXTENDED_RESOURCES = frozenset({"events"})
 # reference; the IR doesn't know them.
 EXTENSION_DOCS = {
     "events": (
-        "`client.events.tail(...)` is hand-written: it reads the Event log "
-        "from a saved position, once or following new Events. See "
-        "[Pagination and Events](../guides/pagination-and-events.md"
-        "#tailing-the-event-log)."
+        "`client.events.tail(...)` is written by hand rather than generated. "
+        "It walks the Event log from a saved position, stopping once caught "
+        "up or following new Events. See [The Event log](../guides/events.md"
+        "#follow-the-log-from-where-you-left-off)."
     ),
 }
 
@@ -1304,7 +1309,7 @@ def reference_signature(path: str, plan: MethodPlan) -> str:
 def reference_scopes(method: Json) -> str:
     security = method["security"]
     if security["kind"] == "none":
-        return "none: a public method, sent without an Access token"
+        return "none (public: the client sends no Access token)"
     alternatives = [
         " and ".join(f"`{s}`" for s in group) for group in security["anyOf"]
     ]
@@ -1317,35 +1322,35 @@ def reference_notes(method: Json, plan: MethodPlan) -> list[str]:
     notes = []
     if method["idempotencyKey"] != "none":
         notes.append(
-            "Sends a generated `Idempotency-Key`, reused by its retries; "
-            "pass `idempotency_key` to set your own."
+            "Sends a generated `Idempotency-Key` that its retries reuse; pass "
+            "`idempotency_key=` to choose your own."
         )
     if method["retrySafe"]:
-        notes.append("Retried on network errors, 409 `conflict`, 429 and 5xx.")
+        notes.append("Retried after network errors, 409 `conflict`, 429 and 5xx.")
     else:
-        notes.append("Never retried: it is not safe to replay.")
+        notes.append("Never retried, since a replay could repeat the change.")
     if method["ifMatch"] == "required":
         notes.append(
-            "Requires `if_match` (an ETag or the object read); a stale one "
-            "raises `PreconditionFailedError`."
+            "Requires `if_match=` (an ETag or the model you read); a stale "
+            "one raises `PreconditionFailedError`."
         )
     elif method["ifMatch"] == "optional":
-        notes.append("Takes `if_match` to refuse the call if the object changed.")
+        notes.append("Pass `if_match=` to make the call fail if the object changed.")
     if method["ifNoneMatch"] != "none":
         notes.append(
-            "Takes `if_none_match` and returns `NotModified` when your copy is current."
+            "Pass `if_none_match=` to get `NotModified` back when your copy is current."
         )
     if plan.call == "request_page":
-        notes.append("Iterate the page for every item across pages.")
+        notes.append("Loop over the page with `for` to get items from every page.")
     if plan.call == "request_operation":
-        notes.append("Returns an Operation: call `wait()` for the result.")
+        notes.append("Returns an Operation; `wait()` returns it once it's done.")
     if plan.call == "request_binary":
-        notes.append("Pass `stream=True` to read the file as it arrives.")
+        notes.append("Pass `stream=True` to read the file in chunks as it arrives.")
     if method["requestBody"] is not None and (
         method["requestBody"]["contentType"] == "application/merge-patch+json"
     ):
         notes.append(
-            "A merge patch: omitted arguments stay unchanged; `None` clears a field."
+            "A merge patch: fields you leave out keep their value, `None` clears one."
         )
     return notes
 
@@ -1383,9 +1388,9 @@ def reference_events(ir: Ir) -> list[str]:
     lines = [
         "## Event types",
         "",
-        "Events from `events.list`, `events.tail` and `Webhook.construct_event` "
-        f"are a union of these models; an Event type this version doesn't know "
-        f"arrives as `{ir.unknown_event}`.",
+        "`events.list`, `events.tail` and `Webhook.construct_event` give you "
+        "one of these models per Event. An Event type this version doesn't "
+        f"know arrives as `{ir.unknown_event}`.",
         "",
         "| Event type | Model | `data` |",
         "| --- | --- | --- |",
@@ -1404,20 +1409,25 @@ def render_reference(ir: Ir) -> str:
         "",
         "# Resource reference",
         "",
-        f"Every resource and method of the client, generated from the SDK IR "
-        f"of the Developer API document release `{ir.raw['source']['release']}`.",
+        f"Every resource and method on the client, generated from the SDK IR "
+        f"for Developer API document release `{ir.raw['source']['release']}`. "
+        "`code-samples.json`, next to this file, holds a runnable sample for "
+        "each operation.",
         "",
-        "Signatures show the synchronous `TeachMeHipaa` client. `AsyncTeachMeHipaa` "
-        "has the same methods, awaited, returning `AsyncPage`, `AsyncOperation` "
-        "and `AsyncBinaryStream` in place of `SyncPage`, `Operation` and "
-        "`BinaryStream`. Every method also takes `max_retries`, `timeout` and "
-        "`request_id` (see [Errors and retries](../guides/errors-and-retries.md)). "
-        "Arguments shown as `= ...` are optional and not sent when left out. Ids in "
-        "the path are positional; everything else is a keyword. Model and "
-        "parameter types are in `teachmehipaa.types`.",
+        "Each signature is written for the sync `TeachMeHipaa` client. On "
+        "`AsyncTeachMeHipaa` you `await` the same method and get `AsyncPage`, "
+        "`AsyncOperation` or `AsyncBinaryStream` where the sync client returns "
+        "`SyncPage`, `Operation` or `BinaryStream` (see "
+        "[Async support](../guides/async.md)). Path ids go first, positionally; "
+        "every other argument is keyword-only. An argument shown as `= ...` is "
+        "optional, and the client leaves it out of the request when you do. On "
+        "top of the arguments listed, every method takes `max_retries`, "
+        "`timeout` and `request_id` (see "
+        "[Retries and timeouts](../guides/retries-and-timeouts.md)). Import "
+        "model and parameter types from `teachmehipaa.types`.",
         "",
-        "Organization-scoped paths contain `{orgId}`, which the client fills in "
-        "from its Organization binding.",
+        "You never pass `{orgId}`: the client fills it in from the Organization "
+        "its credentials belong to.",
         "",
         "## Resources",
         "",
@@ -1439,8 +1449,8 @@ def render_reference(ir: Ir) -> str:
             "",
             f"## {dotted}",
             "",
-            f"`client.{dotted}`: `{class_name}`, or `Async{class_name}` on the "
-            "async client.",
+            f"`client.{dotted}` is a `{class_name}` (`Async{class_name}` on "
+            "the async client).",
         ]
         if is_extended(node):
             lines += ["", EXTENSION_DOCS[".".join(node.path)]]
@@ -1448,6 +1458,277 @@ def render_reference(ir: Ir) -> str:
             lines += ["", *reference_method(ir, node.path, method)]
     lines += ["", *reference_events(ir)]
     return "\n".join(lines) + "\n"
+
+
+# --- API reference code samples ----------------------------------------------
+
+# One Python sample per operation for the API reference's language picker.
+# The six SDKs use the same example values so their samples line up.
+PATH_EXAMPLES = {
+    "certId": "cert_01JD8F3G5H7J9K1M3N5P7Q9R1S",
+    "courseId": "hipaa-2026",
+    "enrollmentId": "enr_01JD8K2M4N6P8Q0R2S4T6V8W0X",
+    "externalId": "hr-1042",
+    "learnerId": "sub_01JD80AB2C3D4E5F6G7H8J9K0M",
+    "operationId": "op_01JD8T4V6W8X0Y2Z4A6B8C0D2E",
+    "subjectId": "sub_01JD80AB2C3D4E5F6G7H8J9K0M",
+    "subscriptionId": "whs_01JD8Q5R7S9T1V3W5X7Y9Z1A3B",
+    "tinyId": "a7Kq2Z",
+}
+# Python source for required keyword arguments, by argument name. A required
+# argument with no value here or in the operation's `SampleSpec.keywords`
+# stops the generator, so a new required field gets a sample value.
+KEYWORD_EXAMPLES = {
+    "email": '"dana.whitfield@example.com"',
+    "endpoint_url": '"https://example.com/webhooks/teachmehipaa"',
+    "event_types": '["learner.certified"]',
+    "file": '"roster.csv"',
+    "format": '"csv"',
+    "items": '[{"email": "dana.whitfield@example.com", "name": "Dana Whitfield"}]',
+    "operation": '"remind"',
+    "select": '{"enrollment_ids": ["enr_01JD8K2M4N6P8Q0R2S4T6V8W0X"]}',
+}
+LEARNER = f'"{PATH_EXAMPLES["learnerId"]}"'
+SUBSCRIPTION = f'"{PATH_EXAMPLES["subscriptionId"]}"'
+
+
+@dataclass(frozen=True)
+class SampleSpec:
+    """How one operation's sample uses its method.
+
+    `body` is the code after the client is built; `{call}` in it becomes the
+    method call with the example values. `keywords` adds optional keyword
+    arguments (at most one telling one) or overrides a required one's value.
+    """
+
+    body: str
+    keywords: Mapping[str, str] = field(default_factory=dict)
+    imports: tuple[str, ...] = ()
+
+
+PATHLIB = ("from pathlib import Path",)
+
+SAMPLES = {
+    "listAuditEvents": SampleSpec(
+        "for event in {call}:\n    print(event.type)",
+        {"type": '"enrollment.transition"'},
+    ),
+    "introspectAccessToken": SampleSpec(
+        "token = {call}\nprint(token.org_id, token.scopes)"
+    ),
+    "getCertificateVerification": SampleSpec(
+        "verification = {call}\nprint(verification.status, verification.learner_name)"
+    ),
+    "downloadCertificatePdf": SampleSpec(
+        "pdf = {call}\n"
+        'Path(pdf.filename or "certificate.pdf").write_bytes(pdf.content)',
+        imports=PATHLIB,
+    ),
+    "exportCertificates": SampleSpec(
+        "export = {call}.wait().export_result()\n"
+        'Path("certificates.csv").write_text(export.csv, newline="")',
+        imports=PATHLIB,
+    ),
+    "listCertificates": SampleSpec(
+        "for certificate in {call}:\n"
+        "    print(certificate.certificate_id, certificate.expires_at)",
+        {"subject_id": LEARNER},
+    ),
+    "getCertificate": SampleSpec(
+        "certificate = {call}\nprint(certificate.status, certificate.expires_at)"
+    ),
+    "getCertificateCredentials": SampleSpec(
+        "links = {call}\nprint(links.short_link, links.linked_in_url)"
+    ),
+    "getComplianceSummary": SampleSpec(
+        'summary = {call}\nprint(f"{{summary.compliant_rate:.0%}} compliant")',
+        {"course_id": '"hipaa-2026"'},
+    ),
+    "listCourses": SampleSpec(
+        "for course in {call}:\n    print(course.course_id, course.title)"
+    ),
+    "getCourse": SampleSpec(
+        "course = {call}\nprint(course.title, course.course_version)"
+    ),
+    "batchEnrollments": SampleSpec(
+        "batch = {call}\n"
+        "for result in batch.results:\n"
+        "    print(result.enrollment_id, result.outcome)"
+    ),
+    "cancelEnrollment": SampleSpec("enrollment = {call}\nprint(enrollment.status)"),
+    "createEnrollment": SampleSpec(
+        "enrollment = {call}\nprint(enrollment.enrollment_id, enrollment.status)",
+        {"course_id": '"hipaa-2026"'},
+    ),
+    "exportEnrollments": SampleSpec(
+        "export = {call}.wait().export_result()\n"
+        'Path("enrollments.csv").write_text(export.csv, newline="")',
+        imports=PATHLIB,
+    ),
+    "importEnrollments": SampleSpec(
+        "operation = {call}\nprint(operation.wait().response)",
+        {"options": '{"course_id": "hipaa-2026"}'},
+    ),
+    "listEnrollments": SampleSpec(
+        "for enrollment in {call}:\n"
+        "    print(enrollment.enrollment_id, enrollment.certified_at)",
+        {"status": '"CERTIFIED"'},
+    ),
+    "remindEnrollment": SampleSpec("accepted = {call}\nprint(accepted.action)"),
+    "renewEnrollment": SampleSpec(
+        "enrollment = {call}\nprint(enrollment.cycle, enrollment.status)"
+    ),
+    "resendEnrollmentInvite": SampleSpec("accepted = {call}\nprint(accepted.action)"),
+    "getEnrollment": SampleSpec(
+        "enrollment = {call}\nprint(enrollment.status, enrollment.expires_at)"
+    ),
+    "listOrgEvents": SampleSpec(
+        "for event in {call}:\n    print(event.event_id, event.occurred_at)",
+        {"type": '"learner.certified"'},
+    ),
+    "batchUpsertLearners": SampleSpec(
+        "operation = {call}\nprint(operation.wait().response)"
+    ),
+    "createLearner": SampleSpec(
+        "learner = {call}\nprint(learner.learner_id, learner.created)",
+        {"name": '"Dana Whitfield"'},
+    ),
+    "createLearnerLaunchLink": SampleSpec(
+        "link = {call}\nprint(link.url, link.expires_at)",
+        {"course_id": '"hipaa-2026"'},
+    ),
+    "exportLearners": SampleSpec(
+        "export = {call}.wait().export_result()\n"
+        'Path("learners.csv").write_text(export.csv, newline="")',
+        imports=PATHLIB,
+    ),
+    "listLearners": SampleSpec(
+        "for learner in {call}:\n    print(learner.email, learner.status)",
+        {"status": '"in_progress"'},
+    ),
+    "offboardLearner": SampleSpec("learner = {call}\nprint(learner.status)"),
+    "remindLearner": SampleSpec("accepted = {call}\nprint(accepted.action)"),
+    "getLearner": SampleSpec("learner = {call}\nprint(learner.name, learner.status)"),
+    "updateLearner": SampleSpec(
+        f"learner = client.learners.retrieve({LEARNER})\n"
+        "updated = {call}\nprint(updated.name)",
+        {"if_match": "learner", "name": '"Dana Whitfield"'},
+    ),
+    "upsertLearnerByExternalId": SampleSpec(
+        "learner = {call}\nprint(learner.learner_id, learner.created)",
+        {"name": '"Dana Whitfield"'},
+    ),
+    "listMembers": SampleSpec(
+        "for member in {call}:\n    print(member.email, member.role)"
+    ),
+    "getMember": SampleSpec("member = {call}\nprint(member.email, member.role)"),
+    "getOperation": SampleSpec(
+        "operation = {call}\nprint(operation.name, operation.done)"
+    ),
+    "getSeatInventory": SampleSpec(
+        'seats = {call}\nprint(seats.available, "of", seats.total, "seats available")'
+    ),
+    "createWebhookSubscription": SampleSpec(
+        "subscription = {call}\n"
+        "print(subscription.subscription_id, subscription.secret_key_id)"
+    ),
+    "deleteWebhookSubscription": SampleSpec('{call}\nprint("deleted")'),
+    "listWebhookSubscriptions": SampleSpec(
+        "for subscription in {call}:\n"
+        "    print(subscription.subscription_id, subscription.endpoint_url)"
+    ),
+    "redriveWebhookSubscription": SampleSpec(
+        "operation = {call}\nprint(operation.wait().response)"
+    ),
+    "getWebhookSubscription": SampleSpec(
+        "subscription = {call}\n"
+        "print(subscription.endpoint_url, subscription.event_types)"
+    ),
+    "testWebhookSubscription": SampleSpec(
+        "operation = {call}\nprint(operation.wait(timeout=60).response)"
+    ),
+    "updateWebhookSubscription": SampleSpec(
+        f"subscription = client.webhook_subscriptions.retrieve({SUBSCRIPTION})\n"
+        "updated = {call}\nprint(updated.enabled)",
+        {"if_match": "subscription", "enabled": "False"},
+    ),
+}
+
+CLIENT_WITH_CREDENTIALS = """\
+import os
+
+from teachmehipaa import TeachMeHipaa
+
+client = TeachMeHipaa(
+    client_id=os.environ["TMH_CLIENT_ID"],
+    client_secret=os.environ["TMH_CLIENT_SECRET"],
+    environment="sandbox",
+)
+"""
+# Public methods send no Access token, so their client takes no credentials.
+CLIENT_WITHOUT_CREDENTIALS = """\
+from teachmehipaa import TeachMeHipaa
+
+client = TeachMeHipaa(environment="sandbox")
+"""
+
+
+def sample_call(ir: Ir, path: tuple[str, ...], method: Json, spec: SampleSpec) -> str:
+    operation = method["operationId"]
+    plan = plan_method(ir, method)
+    arguments = []
+    for p in method["pathParams"]:
+        if p["name"] not in PATH_EXAMPLES:
+            raise GeneratorError(f"{operation}: no sample value for {p['name']}")
+        arguments.append(json.dumps(PATH_EXAMPLES[p["name"]]))
+    keywords = {a.name: a for a in plan.keywords}
+    unknown = sorted(set(spec.keywords) - set(keywords))
+    if unknown:
+        raise GeneratorError(f"{operation}: sample passes unknown {unknown}")
+    for argument in plan.keywords:
+        value = spec.keywords.get(argument.name)
+        if value is None and argument.required:
+            value = KEYWORD_EXAMPLES.get(argument.name)
+            if value is None:
+                raise GeneratorError(
+                    f"{operation}: no sample value for {argument.name}"
+                )
+        if value is not None:
+            arguments.append(f"{argument.name}={value}")
+    dotted = ".".join(identifier(part) for part in path)
+    return f"client.{dotted}.{plan.name}({', '.join(arguments)})"
+
+
+def render_samples(ir: Ir) -> dict[str, str]:
+    """operationId -> sample source, before formatting. Where two methods
+    share an operationId, the sample shows the first (`enrollments.batch`,
+    `enrollments.import_`)."""
+    first: dict[str, tuple[tuple[str, ...], Json]] = {}
+    for path, method in ir.methods:
+        first.setdefault(method["operationId"], (path, method))
+    if set(first) != set(SAMPLES):
+        missing = sorted(set(first) - set(SAMPLES))
+        extra = sorted(set(SAMPLES) - set(first))
+        raise GeneratorError(f"samples missing for {missing}, unknown {extra}")
+    samples = {}
+    for operation, (path, method) in sorted(first.items()):
+        spec = SAMPLES[operation]
+        public = method["security"]["kind"] == "none"
+        client = CLIENT_WITHOUT_CREDENTIALS if public else CLIENT_WITH_CREDENTIALS
+        body = spec.body.format(call=sample_call(ir, path, method, spec))
+        imports = "".join(f"{line}\n" for line in spec.imports)
+        samples[operation] = f"{imports}{client}\n{body}\n"
+    return samples
+
+
+def render_code_samples(samples: Mapping[str, str]) -> str:
+    """The `code-samples.json` the monorepo's API reference vendors."""
+    document = {
+        "language": "python",
+        "release": OPENAPI_VERSION.read_text().strip(),
+        "samples": dict(sorted(samples.items())),
+    }
+    return json.dumps(document, indent=2, ensure_ascii=False) + "\n"
 
 
 # --- driver -------------------------------------------------------------------
@@ -1517,24 +1798,40 @@ def main() -> int:
         ir = load_ir()
         files = generate(ir)
         reference = render_reference(ir)
+        samples = render_samples(ir)
     except GeneratorError as error:
         print(f"generate.py: {error}", file=sys.stderr)
         return 1
     with tempfile.TemporaryDirectory() as scratch:
         out = Path(scratch)
-        write_formatted(files, out)
+        write_formatted(
+            {
+                **files,
+                **{f"{SAMPLES_DIR}/{op}.py": code for op, code in samples.items()},
+            },
+            out,
+        )
         fresh = generated_files(out)
+        code_samples = render_code_samples(
+            {op: (out / SAMPLES_DIR / f"{op}.py").read_text() for op in samples}
+        )
     current = generated_files(PACKAGE)
     if arguments.check:
         stale = sorted(set(fresh) ^ set(current)) + sorted(
             name for name in fresh if current.get(name) != fresh[name]
         )
-        committed = REFERENCE.read_text() if REFERENCE.is_file() else ""
         diffs = [
             (f"src/teachmehipaa/{name}", current.get(name, ""), fresh.get(name, ""))
             for name in stale
         ]
-        diffs.append((str(REFERENCE.relative_to(ROOT)), committed, reference))
+        stale_documents = False
+        for document, contents in (
+            (REFERENCE, reference),
+            (CODE_SAMPLES, code_samples),
+        ):
+            committed = document.read_text() if document.is_file() else ""
+            stale_documents |= committed != contents
+            diffs.append((str(document.relative_to(ROOT)), committed, contents))
         for path, old, new in diffs:
             sys.stdout.writelines(
                 difflib.unified_diff(
@@ -1544,7 +1841,7 @@ def main() -> int:
                     f"b/{path}",
                 )
             )
-        return 1 if stale or committed != reference else 0
+        return 1 if stale or stale_documents else 0
     for name in GENERATED_DIRS:
         shutil.rmtree(PACKAGE / name)
     for name, contents in fresh.items():
@@ -1553,6 +1850,7 @@ def main() -> int:
         target.write_text(contents)
     REFERENCE.parent.mkdir(parents=True, exist_ok=True)
     REFERENCE.write_text(reference)
+    CODE_SAMPLES.write_text(code_samples)
     return 0
 
 

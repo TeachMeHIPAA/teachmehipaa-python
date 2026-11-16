@@ -1,16 +1,16 @@
 # Testing
 
-Test your integration in three layers: unit tests against a fake transport
-that never leave your process, webhook handler tests with Deliveries you
-sign yourself, and end-to-end runs against the Sandbox.
+Three layers cover an integration: unit tests that answer from a fake
+transport and never leave the process, tests of your webhook view with
+Deliveries you sign yourself, and a few end-to-end runs against the
+Sandbox. The examples use pytest, but nothing here depends on it.
 
-## Unit tests with a fake transport
+## Unit-test with `httpx.MockTransport`
 
 The client sends every request through an `httpx` client, so a test can
-pass one whose transport answers from your own code. `httpx.MockTransport`
-takes a function from request to response. Give the client a static token
-and an `organization_id` so it makes no token or Organization lookup
-requests, and `max_retries=0` so a failure shows up at once:
+give it one whose transport is a plain function from request to response.
+Use a static token and an `organization_id` so the client skips the token
+and Organization requests, and `max_retries=0` so a failure fails at once:
 
 <!-- sample: fake-transport -->
 ```python
@@ -51,24 +51,24 @@ client = TeachMeHipaa(
 print(client.compliance.retrieve().compliant_rate)
 ```
 
-Responses use the API's JSON field names (camelCase), as in the
-[OpenAPI document](../../openapi/openapi.developer.json); the models turn
-them into snake_case attributes. Errors are Problem Details with a `code`,
-so the 404 above raises `NotFoundError` with `code == "not_found"`. On the
-async client, pass `httpx.AsyncClient(transport=httpx.MockTransport(...))`;
-the handler can be a plain or an `async` function.
+Write responses with the API's JSON field names (camelCase), as in the
+[OpenAPI document](../../openapi/openapi.developer.json); the models map
+them to snake_case attributes. Errors are Problem Details with a `code`, so
+the 404 above raises `NotFoundError` with `code == "not_found"`. For
+`AsyncTeachMeHipaa`, pass
+`httpx.AsyncClient(transport=httpx.MockTransport(handler))`; the handler can
+be a plain function or a coroutine function.
 
-To test retries and `wait()` without waiting, pass `sleep` (and `clock`)
-functions to the client: they replace `time.sleep` and `time.monotonic`
-(`asyncio.sleep` on the async client). See
-[Configuration](configuration.md).
+Retries and `wait()` sleep between attempts. To keep tests fast, pass the
+client your own `sleep` (and `clock`) in place of `time.sleep` and
+`time.monotonic` (`asyncio.sleep` on the async client).
+[Advanced usage](advanced-usage.md#every-client-option) lists both.
 
-## Test your webhook handler
+## Test your webhook view
 
-`Webhook.generate_test_headers` signs a body the way TeachMeHIPAA signs a
-Delivery, so a test can post a Delivery to your handler through your
-framework's test client. Use a test Signing secret, and sign for the path
-the test posts to:
+`Webhook.generate_test_headers()` signs a body the way TeachMeHIPAA signs a
+Delivery, so a test can post a Delivery through your framework's test
+client. Use a test Signing secret and sign for the path you post to:
 
 <!-- sample: webhook-handler-test -->
 ```python
@@ -114,19 +114,20 @@ def test_rejects_a_changed_body() -> None:
 ```
 
 `generate_test_headers` signs with the current time unless you pass
-`timestamp`. [Webhooks](webhooks.md) has handlers for FastAPI and Django.
+`timestamp=`, which is how you test the 300-second tolerance.
+[Webhooks](webhooks.md) has the matching views for FastAPI and Django.
 
-## End-to-end tests in the Sandbox
+## Run end-to-end tests in the Sandbox
 
-The Sandbox runs the real API against separate data and separate
-credentials, and only emails allowlisted addresses, so you can create
-Learners and Enrollments there freely. Point a client at it with
-`environment="sandbox"` and Sandbox credentials. To check a webhook
-endpoint you've deployed, run `webhook_subscriptions.test` against it (see
-[Test deliveries](webhooks.md#test-deliveries)).
+The Sandbox runs the real API on separate data, with separate credentials,
+and emails only allowlisted addresses, so a test can create Learners and
+Enrollments freely. Build the client with `environment="sandbox"` and
+Sandbox credentials. To check a deployed webhook endpoint, call
+`webhook_subscriptions.test()` against it (see
+[Send yourself a Test delivery](webhooks.md#send-yourself-a-test-delivery)).
 
-Keep Sandbox tests out of your default test run, since they need
-credentials and the network. A pytest marker does that:
+These tests need credentials and the network, so keep them out of the
+default run with a pytest marker:
 
 ```toml
 # pyproject.toml
@@ -135,5 +136,5 @@ addopts = ["-m", "not sandbox"]
 markers = ["sandbox: calls the TeachMeHIPAA Sandbox"]
 ```
 
-Then run them with `pytest -m sandbox`, with `TMH_CLIENT_ID` and
+Run them with `pytest -m sandbox`, with `TMH_CLIENT_ID` and
 `TMH_CLIENT_SECRET` set to Sandbox credentials.
