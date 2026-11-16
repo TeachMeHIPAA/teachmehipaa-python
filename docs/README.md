@@ -1,33 +1,39 @@
 # Documentation
 
-Documentation for `teachmehipaa`, the Python library for the TeachMeHIPAA
-Developer API. Start with the [README](../README.md) for installation and a
-quickstart.
+Everything written about `teachmehipaa`, the Python client for the
+TeachMeHIPAA Developer API. New here? The [README](../README.md) has the
+install command and a first request.
 
 ## Guides
 
-Every Python sample in these guides is type-checked with mypy and run
-against a fake of the API in CI, so the samples work as written.
+Read them roughly in this order. CI type-checks every Python sample in them
+with mypy and runs it against a fake of the API.
 
-| Guide                                                    | Covers                                                                            |
-| -------------------------------------------------------- | --------------------------------------------------------------------------------- |
-| [Getting started](guides/getting-started.md)             | Install, Sandbox credentials, a first call, enrolling a Learner, the async client |
-| [Authentication](guides/authentication.md)               | Client credentials, Scopes, Environments, the Organization binding, static tokens |
-| [Errors and retries](guides/errors-and-retries.md)       | Error classes, `code`, request ids, retries, idempotency keys                     |
-| [Pagination and Events](guides/pagination-and-events.md) | Iterating list calls, the Event log, `events.tail`                                |
-| [Webhooks](guides/webhooks.md)                           | Webhook subscriptions, verifying Deliveries, Test deliveries, test headers        |
-| [Operations and files](guides/operations-and-files.md)   | `wait()`, CSV exports and imports, Certificate PDFs                               |
-| [Conditional requests](guides/conditional-requests.md)   | ETags, `if_match`, `if_none_match`, merge-patch updates                           |
-| [Testing](guides/testing.md)                             | The Sandbox, a fake transport, signing test Deliveries                            |
-| [Configuration](guides/configuration.md)                 | Every client option and its default, timeouts, logging                            |
-| [Versioning](guides/versioning.md)                       | Semantic versioning, `OPENAPI_VERSION`, additive API changes                      |
+| Guide                                                    | Covers                                                                 |
+| -------------------------------------------------------- | ---------------------------------------------------------------------- |
+| [Quickstart](guides/quickstart.md)                       | Install, Sandbox credentials, a first request, enrolling a Learner     |
+| [Async support](guides/async.md)                         | `AsyncTeachMeHipaa`, `asyncio.gather`, sync/async cheat sheet, FastAPI |
+| [Authentication](guides/authentication.md)               | Client credentials, Scopes, Environments, token providers              |
+| [Pagination](guides/pagination.md)                       | `for` over list calls, page objects, `async for`                       |
+| [Exceptions](guides/exceptions.md)                       | The exception tree, `code`, request ids                                |
+| [Retries and timeouts](guides/retries-and-timeouts.md)   | Retry rules, idempotency keys, per-call options, `httpx.Timeout`       |
+| [Safe updates with ETags](guides/etags.md)               | `if_match`, merge patches, `if_none_match` and `NotModified`           |
+| [Exports, imports and PDFs](guides/files-and-operations.md) | `wait()`, CSV exports and imports, Certificate PDFs                 |
+| [The Event log](guides/events.md)                        | `events.list`, `events.tail`                                           |
+| [Webhooks](guides/webhooks.md)                           | Subscriptions, verifying Deliveries in Flask/FastAPI/Django, Test deliveries |
+| [Testing](guides/testing.md)                             | `httpx.MockTransport`, signed test Deliveries, Sandbox runs            |
+| [Advanced usage](guides/advanced-usage.md)               | Every client option, custom `httpx` clients, User-Agent, logging       |
+| [Versions and compatibility](guides/compatibility.md)    | Supported Pythons, semver, `OPENAPI_VERSION`, additive API changes     |
 
 ## API reference
 
 - [Resource reference](reference/resources.md): every resource and method,
   with its signature, HTTP call, required Scopes, retry and conditional
-  behavior, and return type. Generated from the SDK IR by
-  `scripts/generate.py`.
+  behavior, and return type. `scripts/generate.py` writes it from the SDK
+  IR.
+- [`code-samples.json`](reference/code-samples.json): one Python sample per
+  API operation, also written by `scripts/generate.py`. The TeachMeHIPAA API
+  reference shows them when you pick Python.
 - [API reference](https://teachmehipaa.github.io/teachmehipaa-python/):
   every public class, function and model with its docstrings, built with
   [pdoc](https://pdoc.dev/) and published from `main`. Build it locally with

@@ -1,8 +1,11 @@
-# Configuration
+# Advanced usage
 
-A client's options are keyword arguments to `TeachMeHipaa` (or
-`AsyncTeachMeHipaa`), fixed when you create it. There is no global
-configuration: two clients with different settings can live side by side.
+## Configure a client
+
+You configure a client with keyword arguments to `TeachMeHipaa` (or
+`AsyncTeachMeHipaa`), once, when you build it. The library keeps no global
+state, so two differently configured clients can run side by side in one
+process:
 
 <!-- sample: configuration -->
 ```python
@@ -30,7 +33,10 @@ client = TeachMeHipaa(
 print(client.environment, client.base_url, client.max_retries)
 ```
 
-## Options
+`environment`, `base_url` and `max_retries` read back as attributes, and
+`timeout` reads back as an `httpx.Timeout`.
+
+## Every client option
 
 | Option            | Default                               | Description                                                                          |
 | ----------------- | ------------------------------------- | ------------------------------------------------------------------------------------ |
@@ -47,60 +53,37 @@ print(client.environment, client.base_url, client.max_retries)
 | `http_client`     | A new `httpx.Client` (`AsyncClient`)  | Sends requests, e.g. with a proxy, mTLS or a mock transport; closed by `close()`     |
 | `clock`, `sleep`  | `time.monotonic`, `time.sleep`        | Supply the time and waits, for tests (`asyncio.sleep` on the async client)           |
 
-Pass either `client_id` and `client_secret`, or `token_provider`, not both;
-`scopes` then belong to the token provider. With neither, the client makes
-only public calls (see [Authentication](authentication.md)). The base URLs
-are `https://api.tme.so/v1` for Live and
-`https://api-teachmehipaa-dev.web.app/v1` for the Sandbox.
-`environment`, `base_url`, `max_retries` and `timeout` can be read back from
-the client.
+A client takes either `client_id` plus `client_secret` or a
+`token_provider`; with a provider, `scopes` belongs to the provider. With
+none of the three, it can only make the public calls (see
+[Authentication](authentication.md#look-things-up-without-credentials)).
+[Retries and timeouts](retries-and-timeouts.md) covers `max_retries` and
+`timeout` in depth.
 
-## Timeouts
+## Send requests through your own `httpx` client
 
-`timeout` is how long to wait for each response, 80 seconds by default. A
-float applies to every phase of the request; an `httpx.Timeout` sets them
-separately, such as a short connect timeout with a longer read timeout.
-`max_retries`, `timeout` and `request_id` can also be given to any one
-call, overriding the client's settings for that call (this sample, like
-the logging one below, assumes a `client` created as in
-[Getting started](getting-started.md#3-make-your-first-call)):
+Pass `http_client` to route requests through an `httpx.Client` you set up:
+a corporate proxy, a custom CA bundle, client certificates for mTLS, or a
+mock transport in tests (see [Testing](testing.md)). The library closes it
+when you call `client.close()` or leave the `with` block. Give
+`AsyncTeachMeHipaa` an `httpx.AsyncClient`.
 
-<!-- sample: timeouts -->
-```python
-import httpx
+## Identify your app in the User-Agent
 
-page = client.learners.list(timeout=httpx.Timeout(30.0, connect=5.0), max_retries=0)
-print(len(page.items))
-```
+`app_info` appends your software's name, and optionally its version and
+URL, to the `User-Agent` header, after the library's own
+`teachmehipaa-python/<version> python/<version> httpx/<version>`.
+TeachMeHIPAA support uses it to find your traffic. The library sends no
+telemetry beyond that header.
 
-A call that gets no response in time raises `APITimeoutError`, after any
-retries. An Operation's `wait()` has its own `timeout` and `interval` for
-how long and how often to poll; see
-[Operations and files](operations-and-files.md).
+## Turn on debug logging
 
-## Your own `httpx` client
-
-Pass `http_client` to send requests through an `httpx.Client` you
-configured, for a proxy, custom certificates or mTLS, or a mock transport
-in tests (see [Testing](testing.md)). The client's `close()`, or leaving its
-`with` block, closes it. Use `httpx.AsyncClient` with `AsyncTeachMeHipaa`.
-
-## Identifying your software
-
-`app_info` adds your software's name, and optionally its version and URL,
-to the `User-Agent` the client sends, after the library's own
-`teachmehipaa-python/<version> python/<version> httpx/<version>`. It helps
-TeachMeHIPAA support find your calls. The library sends no other telemetry.
-
-## Logging
-
-The library prints nothing, sends no telemetry and writes nothing to disk.
-It logs through the standard `logging` module, to the logger named
-`teachmehipaa`: one DEBUG record per HTTP response, token requests
-included, with the method, the path (without its query string, which can
-hold Learner emails), the status, the latency and the request id. Request
-and response bodies, headers and credentials are never logged, because
-they hold Learner details. Nothing appears until you turn DEBUG on for the
+The library prints nothing and writes nothing to disk. It logs through the
+standard `logging` module to the `teachmehipaa` logger: one DEBUG record per
+HTTP response, token requests included, with the method, the path (minus the
+query string, which can hold Learner emails), the status, the latency and
+the request id. It never logs bodies, headers or credentials, since those
+hold Learner details. You see nothing until you enable DEBUG for that
 logger:
 
 <!-- sample: logging -->
@@ -114,5 +97,6 @@ client.learners.list()
 # DEBUG:teachmehipaa:GET /v1/organizations/org_acme/learners 200 in 84 ms (request id req_7f3c2a)
 ```
 
-Each record also carries the fields as attributes (`method`, `path`,
-`status`, `latency_ms`, `request_id`) for structured log handlers.
+Each record also carries those values as attributes (`method`, `path`,
+`status`, `latency_ms`, `request_id`) for a structured log handler to pick
+up.

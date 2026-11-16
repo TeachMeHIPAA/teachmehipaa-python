@@ -95,3 +95,7 @@ Generated from the Developer API document release `trimmed-2026-11-15`.
   ID, a Flask webhook endpoint and a Certificate export.
 - A shorter README with CI and license badges, a pre-release status note
   and links to the guides, and a docs index in `docs/README.md`.
+- `docs/reference/code-samples.json`, one type-checked sample per operation
+  for the API reference, and the guides reorganized: a new Async support
+  guide, Exceptions and Retries and timeouts split out, and the Event log
+  given its own page.

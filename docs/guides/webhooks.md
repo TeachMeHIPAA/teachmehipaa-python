@@ -1,17 +1,15 @@
 # Webhooks
 
-A Webhook subscription sends Events to your HTTPS endpoint as they happen.
-Each Delivery is a signed POST of one Event. Your endpoint verifies the
-signature, handles the Event and answers 2xx; a Delivery that fails is
-retried until it succeeds or is dead-lettered.
+A Webhook subscription POSTs Events to your HTTPS endpoint as they happen.
+Each POST is a Delivery: one Event, signed with the subscription's Signing
+secret. Your view checks the signature, handles the Event and answers 2xx.
+TeachMeHIPAA retries a failed Delivery until it succeeds or lands in the
+dead letters. Samples use a `client` built as in the
+[Quickstart](quickstart.md#make-a-request).
 
-Samples assume a `client` created as in
-[Getting started](getting-started.md#3-make-your-first-call).
+## Subscribe an endpoint
 
-## Create a Webhook subscription
-
-Subscribe an endpoint to the Event types you want. Managing subscriptions
-needs the `webhooks:manage` Scope.
+Managing subscriptions takes the `webhooks:manage` Scope.
 
 <!-- sample: webhook-subscription-create -->
 ```python
@@ -24,45 +22,46 @@ signing_secrets.save(subscription.subscription_id, subscription.secret)
 print(subscription.subscription_id, subscription.secret_key_id)
 ```
 
-The response carries the subscription's Signing secret in `secret`, and
-only this once: store it now, in a secret manager (`signing_secrets` stands
-in for yours). Your endpoint needs it to verify Deliveries.
-`webhook_subscriptions.list`, `retrieve`, `update` and `delete` manage
-subscriptions later; `update` needs `if_match` (see
-[Conditional requests](conditional-requests.md)).
+The response holds the Signing secret in `secret`, and no later response
+will. Put it in your secret manager right away (`signing_secrets` stands in
+for yours); your view needs it to verify every Delivery.
+`webhook_subscriptions.list()`, `retrieve()`, `update()` and `delete()`
+manage the subscription from then on. `update()` requires `if_match`, as
+[Safe updates with ETags](etags.md) explains.
 
-## Verify a Delivery
+## Verify a Delivery in your web app
 
-`Webhook.construct_event` verifies a Delivery and returns its Event, or a
-`TestDelivery` (from `teachmehipaa.types`, like every model). It needs
-three things exactly as they arrived:
+`Webhook.construct_event()` checks a Delivery and returns its Event, or a
+`TestDelivery` (from `teachmehipaa.types`, like every model). Hand it these,
+untouched:
 
-1. **The raw body.** Parsed and re-serialized JSON never verifies, so read
-   the body as bytes before anything parses it.
-2. **The headers.** A dict works, and so do Flask's, Starlette's and
-   Django's `request.headers`.
-3. **The request path, with its query string, or the full URL.** The
-   signature covers the path the Delivery was sent to, so a verifier that
-   drops the path, or its query string, rejects every Delivery.
+1. **The raw body, as bytes.** JSON that something parsed and serialized
+   again never verifies, so read the body before any middleware does.
+2. **The headers.** A plain dict works, and so do the `request.headers` of
+   Flask, Starlette and Django.
+3. **The path the Delivery was sent to, with its query string**, or the
+   full URL. The signature covers it, so a view that passes the path
+   without its query string rejects every Delivery.
 
-It also takes the Signing secret. Deliveries signed more than 5 minutes
-from your clock, in either direction, are rejected. Verification raises
-`WebhookSignatureError` with a `code` saying which check failed:
-`missing_header`, `invalid_timestamp`, `timestamp_outside_tolerance`,
-`body_hash_mismatch` or `signature_mismatch`. Answer it with 400.
+The fourth argument is the Signing secret. `construct_event` rejects a
+Delivery signed more than 300 seconds before or after your clock time;
+`tolerance=` changes that window. A failed check raises
+`WebhookSignatureError`, whose `code` names the check: `missing_header`,
+`invalid_timestamp`, `timestamp_outside_tolerance`, `body_hash_mismatch` or
+`signature_mismatch`. Answer it with a 400.
 
-Event types this version doesn't know arrive as an `UnknownEvent`, so new
-types never break your handler. The same Event can arrive more than once,
-so make your handling idempotent, keyed by `event.event_id`.
+An Event type this version of the library doesn't know comes back as
+`UnknownEvent`, so a new type can't crash your view. TeachMeHIPAA may
+deliver one Event more than once; key your side effects on `event.event_id`.
 
-`Webhook` needs only the Signing secret, never API credentials, so a
-handler can import it without creating a client. It is also on the clients
-as `TeachMeHipaa.webhooks`.
+`Webhook` needs a Signing secret and nothing else, so a web worker can
+verify Deliveries without building an API client. Each client also exposes
+it as `client.webhooks`.
 
 ### Flask
 
-Read the body with `request.get_data()`. `request.full_path` always ends in
-`?`, even with no query string, so strip it:
+Read the body with `request.get_data()`. Flask's `request.full_path` ends in
+`?` even when there is no query string, so strip it:
 
 <!-- sample: webhook-flask -->
 ```python
@@ -94,8 +93,8 @@ def tmh_webhook() -> tuple[str, int]:
 
 ### FastAPI
 
-With FastAPI (or Starlette), read `await request.body()` and pass the full
-`request.url`, which keeps any mount path and the query string:
+In FastAPI or Starlette, `await request.body()` gives you the bytes, and
+`str(request.url)` keeps the query string and any mount prefix:
 
 <!-- sample: webhook-fastapi -->
 ```python
@@ -125,10 +124,13 @@ async def tmh_webhook(request: Request) -> Response:
     return Response(f"received {event.event_type}")
 ```
 
+`construct_event` is plain CPU work (an HMAC and a hash), so calling it from
+an `async def` view doesn't block the event loop on I/O.
+
 ### Django
 
 Use `request.body` and `request.get_full_path()`, and exempt the view from
-CSRF checks, since the signature authenticates the request:
+CSRF, because the signature already authenticates the request:
 
 <!-- sample: webhook-django -->
 ```python
@@ -162,19 +164,19 @@ def tmh_webhook(request: HttpRequest) -> HttpResponse:
 ### Behind a proxy
 
 If a proxy or load balancer rewrites the path before your app sees it, pass
-the path the Delivery was sent to, as registered in `endpoint_url`, rather
-than the one your framework reports.
+the path from the subscription's `endpoint_url` (the one TeachMeHIPAA
+signed) instead of the one your framework reports.
 
-## Test deliveries
+## Send yourself a Test delivery
 
-`webhook_subscriptions.test` sends a signed Test delivery to the
-subscription's endpoint, to check your verifier end to end. It carries no
-Event: `construct_event` returns a `TestDelivery` with the
-`subscription_id`, which your handler should answer with 2xx, as the
-handlers above do.
+`webhook_subscriptions.test()` sends a signed Test delivery to the
+subscription's endpoint, so you can check your view end to end. It carries
+no Event: `construct_event` returns a `TestDelivery` holding the
+`subscription_id`, and your view should answer it with 2xx, as the views
+above do.
 
 The call returns an Operation that finishes once your endpoint has
-answered; `wait()` for it and read the outcome from `response`:
+answered. Wait for it and read the outcome from `response`:
 
 <!-- sample: webhook-test-delivery -->
 ```python
@@ -188,17 +190,17 @@ elif isinstance(result, WebhookDeliveryFailed):
     print("delivery failed:", result.reason)
 ```
 
-`webhook_subscriptions.redrive` delivers a subscription's failed Events
-again, and returns the same kind of Operation. A result's `tag` is `sent`,
-`failed` or `settled` (the Delivery had already ended); handle tags you
-don't recognize, since more may be added.
+`webhook_subscriptions.redrive()` sends a subscription's failed Deliveries
+again and returns the same kind of Operation. A result's `tag` is `sent`,
+`failed` or `settled` (that Delivery had already finished). More tags may
+appear later, so keep a fallback branch; they parse as
+`UnknownWebhookDeliveryResult`.
 
-## Sign test Deliveries yourself
+## Sign Deliveries in your own tests
 
-To test your handler without TeachMeHIPAA, sign a payload the way
-TeachMeHIPAA does with `Webhook.generate_test_headers`. It takes the body,
-the Signing secret and the path, and returns the headers to send with the
-body:
+`Webhook.generate_test_headers()` signs a payload the way TeachMeHIPAA does.
+Give it the body, a Signing secret and the path, and send the headers it
+returns along with that body:
 
 <!-- sample: webhook-test-headers -->
 ```python
@@ -232,5 +234,5 @@ if not isinstance(event, TestDelivery):
     print(event.event_type)
 ```
 
-[Testing](testing.md#test-your-webhook-handler) shows this inside a test
-of a Flask handler.
+[Testing](testing.md#test-your-webhook-view) runs this inside a pytest test
+of a Flask view.
