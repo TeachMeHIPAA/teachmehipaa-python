@@ -10,7 +10,7 @@ import pydantic
 from pydantic.alias_generators import to_camel
 
 # Undeclared in the spec, but the API sends it on every response and echoes
-# one a caller sends (research `api-sdk-surface.md` §7).
+# one a caller sends.
 REQUEST_ID_HEADER = "x-request-id"
 
 

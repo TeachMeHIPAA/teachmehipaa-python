@@ -105,7 +105,7 @@ class UnknownWebhookDeliveryResult(BaseModel):
 
 
 # The spec leaves these Operations' `response` untyped; the webhook worker
-# settles them with one of these (research `api-sdk-surface.md` §8).
+# settles them with one of these.
 WebhookDeliveryResult: TypeAlias = Annotated[
     Annotated[WebhookDeliverySent, pydantic.Tag("sent")]
     | Annotated[WebhookDeliveryFailed, pydantic.Tag("failed")]

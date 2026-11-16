@@ -46,7 +46,7 @@ def event(event_id: str) -> dict[str, Any]:
 
 
 def page(items: list[dict[str, Any]], next_cursor: str | None) -> Reply:
-    """research `api-sdk-surface.md` §4: `{ items, nextCursor }`."""
+    """The Developer API's page envelope: `{ items, nextCursor }`."""
     return Reply(json={"items": items, "nextCursor": next_cursor})
 
 
@@ -151,7 +151,7 @@ def test_every_page_carries_the_first_calls_filters_and_limit_unvalidated() -> N
 
 
 def test_the_event_log_pages_by_after_the_last_events_id_not_cursor() -> None:
-    # §4: `nextCursor` is the last Event id while more rows exist.
+    # `nextCursor` is the last Event id while more rows exist.
     api = scripted(
         EVENTS_PATH,
         page([event("evt_01"), event("evt_02")], "evt_02"),
@@ -331,8 +331,8 @@ def test_tail_resumes_from_an_event_id_and_returns_once_caught_up() -> None:
     api = scripted(
         EVENTS_PATH,
         page([event("evt_03"), event("evt_04")], "evt_04"),
-        # §4: `nextCursor` is null at the current end, so it gives no resume
-        # point; the tail keeps the last id itself.
+        # `nextCursor` is null at the current end, so it gives no resume point;
+        # the tail keeps the last id itself.
         page([event("evt_05")], None),
     )
 
