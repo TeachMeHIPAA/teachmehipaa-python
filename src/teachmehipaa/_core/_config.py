@@ -17,7 +17,7 @@ T = TypeVar("T")
 ENVIRONMENT_BASE_URLS: Mapping[Environment, str] = MappingProxyType(
     {
         "live": "https://api.tme.so/v1",
-        "sandbox": "https://api-teachmehipaa-dev.web.app/v1",
+        "sandbox": "https://sandbox.api.tme.so/v1",
     }
 )
 

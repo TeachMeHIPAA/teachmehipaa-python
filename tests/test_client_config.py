@@ -40,8 +40,8 @@ def test_sandbox_environment_calls_the_sandbox_deployment() -> None:
 
     client.learners.retrieve(LEARNER_ID)
 
-    assert client.base_url == "https://api-teachmehipaa-dev.web.app/v1"
-    assert hosts_called(api) == {"https://api-teachmehipaa-dev.web.app/"}
+    assert client.base_url == "https://sandbox.api.tme.so/v1"
+    assert hosts_called(api) == {"https://sandbox.api.tme.so/"}
     assert api.requests[0].url.path == "/v1/auth/token"
 
 

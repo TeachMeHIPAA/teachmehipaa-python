@@ -51,7 +51,7 @@ Pass either `client_id` and `client_secret`, or `token_provider`, not both;
 `scopes` then belong to the token provider. With neither, the client makes
 only public calls (see [Authentication](authentication.md)). The base URLs
 are `https://api.tme.so/v1` for Live and
-`https://api-teachmehipaa-dev.web.app/v1` for the Sandbox.
+`https://sandbox.api.tme.so/v1` for the Sandbox.
 `environment`, `base_url`, `max_retries` and `timeout` can be read back from
 the client.
 
