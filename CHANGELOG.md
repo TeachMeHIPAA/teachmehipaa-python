@@ -9,6 +9,13 @@ All notable changes to this library are documented here. It follows
 The first release, to ship as 1.0.0 when the Developer API launches.
 Generated from the Developer API document release `trimmed-2026-11-15`.
 
+### Changed
+
+- The guides, the generated resource reference and the pdoc site on GitHub
+  Pages are gone; the documentation lives at
+  [docs.teachmehipaa.com/api](https://docs.teachmehipaa.com/api?lang=python).
+  `docs/reference/code-samples.json` stays and feeds it.
+
 ### Added
 
 - `TeachMeHipaa` and `AsyncTeachMeHipaa`, with the same surface, covering all

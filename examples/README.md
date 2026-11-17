@@ -3,7 +3,7 @@
 Small programs that use the library against the Sandbox. Each reads an API
 client's credentials from `TMH_CLIENT_ID` and `TMH_CLIENT_SECRET` (create
 one in the Sandbox Environment; see
-[Authentication](../docs/guides/authentication.md)). CI type-checks them
+[the docs](https://docs.teachmehipaa.com/api?lang=python)). CI type-checks them
 with mypy but doesn't run them.
 
 | Example                                            | What it does                                                    |

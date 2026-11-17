@@ -8,5 +8,3 @@ dist/
 build/
 *.egg-info/
 
-# pdoc output (`uv run python scripts/build_docs.py`)
-site/
